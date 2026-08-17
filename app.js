@@ -2480,24 +2480,48 @@ We have attached full script and code files corresponding to this domain in the 
         return data.message.content;
     },
 
-    async fetchGroqChat(key, model, prompt) {
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${key}`
-            },
-            body: JSON.stringify({
-                model: model,
-                messages: [{ role: 'user', content: prompt }],
-                temperature: 0.7
-            })
-        });
-        const data = await res.json();
-        if (data.error) {
-            throw new Error(data.error.message);
+    async fetchGroqChat(key, requestedModel, prompt) {
+        const groqModels = [
+            requestedModel || 'llama-3.3-70b-versatile',
+            'llama-3.3-70b-versatile',
+            'llama-3.1-8b-instant',
+            'llama-3.1-70b-versatile',
+            'llama3-70b-8192',
+            'llama3-8b-8192',
+            'mixtral-8x7b-32768',
+            'gemma2-9b-it'
+        ];
+
+        const uniqueModels = [...new Set(groqModels)];
+        let lastError = null;
+
+        for (const model of uniqueModels) {
+            try {
+                const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${key}`
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: [{ role: 'user', content: prompt }],
+                        temperature: 0.7
+                    })
+                });
+                const data = await res.json();
+                if (data.error) {
+                    throw new Error(data.error.message);
+                }
+                if (data.choices && data.choices[0] && data.choices[0].message) {
+                    return data.choices[0].message.content;
+                }
+            } catch (err) {
+                lastError = err;
+                console.warn(`[fetchGroqChat] Model ${model} failed:`, err.message);
+            }
         }
-        return data.choices[0].message.content;
+        throw new Error(lastError ? lastError.message : 'Groq API connection failed');
     }
 };
 
