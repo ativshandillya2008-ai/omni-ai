@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniAI - ChatGPT Conversational Suite</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+</head>
+<body>
+    <!-- Access Control Screen -->
+    <div id="login-screen" class="login-overlay">
+        <div class="login-card glass-panel">
+            <div class="glow-effect"></div>
+            <div class="glow-effect-secondary"></div>
+            <div class="login-header">
+                <div class="logo-icon">
+                    <svg width="52" height="52" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="url(#grad-purple)" />
+                        <path d="M2 17L12 22L22 17" stroke="url(#grad-purple)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M2 12L12 17L22 12" stroke="url(#grad-purple)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        <defs>
+                            <linearGradient id="grad-purple" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                                <stop stop-color="#a855f7" />
+                                <stop offset="1" stop-color="#3b82f6" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <h2>OmniAI Suite</h2>
+                <p>Universal Conversational & Generative Intelligence</p>
+            </div>
+            
+            <div class="login-form">
+                <!-- Primary Google Auth Button -->
+                <button id="btn-google-login" class="btn-auth btn-google" onclick="window.openGoogleModal()">
+                    <svg class="google-icon" width="20" height="20" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                    </svg>
+                    <span>Sign in with Google</span>
+                </button>
+
+                <div class="login-divider">
+                    <span>or</span>
+                </div>
+
+                <!-- Guest Mode Button -->
+                <button id="btn-guest-unlock" class="btn-auth btn-guest" onclick="window.loginAsGuest()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <span>Guest Mode (Normal Access)</span>
+                </button>
+
+                <!-- Admin Security Passkey Toggle -->
+                <div class="admin-passkey-toggle" style="margin-top: 14px;">
+                    <button id="btn-toggle-admin-fields" class="btn-text-link">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.778-7.778zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                        <span>Owner Passkey Unlock</span>
+                    </button>
+                </div>
+
+                <!-- Admin Bypass Wrapper (hidden by default) -->
+                <div id="admin-login-fields" style="display: none; margin-top: 12px; transition: all 0.3s ease;">
+                    <div class="input-group" style="margin-bottom: 12px;">
+                        <input type="password" id="owner-key" placeholder="Enter owner passphrase..." value="admin">
+                    </div>
+                    <button id="btn-unlock" class="btn-primary" style="margin-bottom: 8px; padding: 10px;">
+                        <span>Unlock Owner Admin</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M10 14L21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+                    </button>
+                </div>
+
+                <div class="login-footer" style="margin-top: 20px;">
+                    <span>GPU Cluster: <span class="status-active">ONLINE</span> &bull; 8088</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Google Authentication Modal Dialog -->
+        <div id="google-auth-modal" class="auth-modal-overlay hidden">
+            <div class="auth-modal-card glass-panel">
+                <div class="auth-modal-header">
+                    <div class="google-badge-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24">
+                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                            <path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.62z"/>
+                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                        </svg>
+                    </div>
+                    <h3>Sign in with Google</h3>
+                    <p>Select your Google account to access OmniAI</p>
+                </div>
+                <div class="auth-modal-body">
+                    <!-- 1-Click Primary Admin Account Tile -->
+                    <div id="btn-quick-admin-google" class="google-account-tile" onclick="window.loginAsGoogleAdmin()">
+                        <div class="google-account-avatar">A</div>
+                        <div class="google-account-details">
+                            <div class="google-account-name">Ativ Sandillya</div>
+                            <div class="google-account-email">ativsandillya2008@gmail.com</div>
+                        </div>
+                        <div class="google-account-badge">ADMIN</div>
+                    </div>
+
+                    <div style="font-size:10px; color:var(--text-muted); margin: 12px 0 8px; text-transform:uppercase; font-weight:600; letter-spacing:0.5px;">Or Sign in with another account</div>
+
+                    <div class="input-group" style="margin-bottom: 12px;">
+                        <input type="email" id="google-email-input" placeholder="Enter your Google email..." value="">
+                    </div>
+                    <button id="btn-submit-google-auth" class="btn-primary" onclick="window.loginAsGoogleUser()" style="margin-top: 8px;">
+                        <span>Continue to Workspace</span>
+                    </button>
+                    <button id="btn-cancel-google-auth" class="btn-text-link" onclick="window.closeGoogleModal()" style="margin-top: 12px; width:100%; text-align:center;">
+                        <span>Cancel</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main ChatGPT Workspace Layout -->
+    <div id="app-workspace" class="workspace-layout hidden">
+        <div class="sidebar-overlay" id="sidebar-overlay"></div>
+        
+        <!-- Left Sidebar (ChatGPT & NotebookLM) -->
+        <aside class="sidebar glass-panel">
+            <div class="sidebar-header">
+                <div class="brand">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="brand-logo"><path d="M12 2L2 7L12 12L22 7zM2 17L12 22L22 17M2 12L12 17L22 12"/></svg>
+                    <span>OmniAI Suite</span>
+                </div>
+                <div class="cluster-badge">
+                    <span class="pulse-indicator"></span>
+                    <span>UNLIMITED PRO</span>
+                </div>
+            </div>
+
+            <!-- New Chat button and Selector -->
+            <div class="new-chat-wrapper" style="padding:12px 16px 0;">
+                <button id="btn-new-chat" class="btn-new-chat">
+                    <span>+ New Conversation</span>
+                </button>
+                <div class="chat-model-select-wrapper" style="margin-top: 8px;">
+                    <select id="chat-model-selector" class="chat-model-select">
+                        <option value="auto-router" selected>⚡ Auto-Router (Intelligent Agent)</option>
+                        <option value="gpt-4o">ChatGPT (GPT-4o Pro)</option>
+                        <option value="gemini-1-5-ultra">Gemini 1.5 Ultra/Pro</option>
+                        <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
+                        <option value="deepseek-v3">DeepSeek-V3 Pro</option>
+                        <option value="groq-llama-3-3">Groq LLaMA 3.3 (Sub-Second)</option>
+                        <option value="llama-3-3">Llama 3.3 Local</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Scrollable Sidebar Content -->
+            <div class="sidebar-content" style="padding-top: 12px; gap: 20px;">
+                
+                <!-- Project Workspace Selector -->
+                <section class="sidebar-section">
+                    <div class="section-title">Active Workspace Project</div>
+                    <select id="project-selector" class="chat-model-select" style="font-size:11px; margin-top:4px;">
+                        <option value="default" selected>📁 Workspace: General Co-Pilot</option>
+                        <option value="web-dev">💻 Workspace: Full-Stack Web Dev</option>
+                        <option value="ai-research">🧠 Workspace: Deep Learning Research</option>
+                        <option value="media-gen">🎨 Workspace: Media & Art Studio</option>
+                    </select>
+                </section>
+
+                <!-- Chat History threads list (ChatGPT style) -->
+                <section class="sidebar-section">
+                    <div class="section-title">Conversations</div>
+                    <div class="chat-history-list" id="chat-history-list">
+                        <!-- Populated dynamically -->
+                        <div class="history-item active" data-thread-id="default">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            <span>OmniAI Co-Pilot Portal</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- NotebookLM Sources Upload Zone -->
+                <section class="sidebar-section">
+                    <div class="section-title">
+                        <span>NotebookLM Sources</span>
+                        <span class="badge" id="source-count">0</span>
+                    </div>
+                    <div class="source-upload-container">
+                        <div class="file-dropzone" id="file-dropzone" style="padding: 14px;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                            <span>Attach Documents</span>
+                            <span class="sub" style="font-size:9px;">PDF, TXT, CSV, DOCX</span>
+                            <input type="file" id="file-uploader" multiple style="display: none;">
+                        </div>
+                        <div class="url-input-container">
+                            <input type="text" id="url-input" placeholder="Paste Web / Youtube link...">
+                            <button id="btn-add-url">+</button>
+                        </div>
+                        <div class="sources-list" id="sources-list" style="max-height: 110px;">
+                            <div class="source-empty">No source documents uploaded.</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Credentials Panel (Optional) -->
+                <section class="sidebar-section">
+                    <div class="section-title collapsed-trigger" id="credentials-title">
+                        <span>API Keys (Optional)</span>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="arrow"><path d="M19 9l-7 7-7-7"/></svg>
+                    </div>
+                    <div class="credentials-content collapsed" id="credentials-content">
+                        <div class="input-group">
+                            <label style="font-size:10px;">OpenAI Key</label>
+                            <input type="password" id="key-openai" class="api-key-input" placeholder="sk-...">
+                        </div>
+                        <div class="input-group">
+                            <label style="font-size:10px;">Gemini Key</label>
+                            <input type="password" id="key-gemini" class="api-key-input" placeholder="AIzaSy...">
+                        </div>
+                        <div class="input-group">
+                            <label style="font-size:10px;">Anthropic Key</label>
+                            <input type="password" id="key-anthropic" class="api-key-input" placeholder="sk-ant-...">
+                        </div>
+                        <div class="input-group">
+                            <label style="font-size:10px;">Groq Key</label>
+                            <input type="password" id="key-groq" class="api-key-input" placeholder="gsk_...">
+                        </div>
+                    </div>
+                </section>
+            </div>
+            
+            <!-- User Footer -->
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <div class="avatar" id="user-avatar-badge">A</div>
+                    <div class="user-info">
+                        <span class="name" id="user-display-name">Ativ Sandillya</span>
+                        <span class="role" id="user-display-role">Admin Mode</span>
+                    </div>
+                    <button id="btn-logout-account" title="Switch Account / Sign Out" class="btn-logout-icon">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main ChatGPT Conversational Window -->
+        <main class="chat-main-viewport">
+            
+            <!-- Active Model Header -->
+            <div class="chat-main-header">
+                <div class="model-badge">
+                    <button id="btn-toggle-sidebar" class="btn-toggle-sidebar" title="Toggle Sidebar" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; padding:6px; display:none; align-items:center; justify-content:center; margin-right:8px; border-radius:6px; transition:background 0.2s;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                    </button>
+                    <strong id="active-model-title">Gemini 1.5 Ultra</strong>
+                    <span class="vram-cluster-tag" style="font-size:10px; color:var(--text-muted);">&bull; Unlimited VRAM cluster</span>
+                </div>
+                <div class="header-actions">
+                    <button id="btn-toggle-speech" class="btn-clear-chat-header" style="margin-right: 8px;" title="Toggle Speech Output">Mute Speech</button>
+                    <button id="btn-toggle-agent" class="btn-clear-chat-header" style="margin-right: 8px;" title="Toggle Agent Panel">Agent Console</button>
+                    <button id="btn-clear-chat" title="Clear Conversation" class="btn-clear-chat-header">Clear</button>
+                </div>
+            </div>
+
+            <!-- Scrollable Messages Container -->
+            <div class="chat-messages-scroll" id="chat-messages-container">
+                
+                <!-- Welcome Empty State -->
+                <div class="chat-welcome-state" id="chat-welcome-state">
+                    <div class="welcome-logo">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7L12 12L22 7zM2 17L12 22L22 17M2 12L12 17L22 12"/></svg>
+                    </div>
+                    <h1>What would you like to generate today?</h1>
+                    <p>Conversational pipeline with in-line image, video, coding, and multi-field research capabilities.</p>
+                    
+                    <div class="suggestions-grid">
+                        <div class="suggestion-card" data-prompt="Build a fully working brick breaker game in HTML/CSS/JS with canvas">
+                            <strong>Coding Sandbox</strong>
+                            <span>Build an interactive retro brick breaker game</span>
+                        </div>
+                        <div class="suggestion-card" data-prompt="Plot a quantum qubit vector on a Bloch sphere coordinate system">
+                            <strong>Quantum Computing</strong>
+                            <span>Simulate qubit vector angles theta and phi</span>
+                        </div>
+                        <div class="suggestion-card" data-prompt="Visualize caffeine atomic molecular bonds on a structural grid">
+                            <strong>Chemistry Bonds</strong>
+                            <span>Render molecular structures and linkage elements</span>
+                        </div>
+                        <div class="suggestion-card" data-prompt="Simulate micrograd scalar autograd and backprop chain rule DAG graph">
+                            <strong>Micrograd Autograd</strong>
+                            <span>Simulate scalar backpropagation & DAG gradients</span>
+                        </div>
+                        <div class="suggestion-card" data-prompt="Simulate makemore bigram language model and softmax sampling">
+                            <strong>Makemore Language Model</strong>
+                            <span>Simulate bigram probabilities, softmax & NLL loss</span>
+                        </div>
+                        <div class="suggestion-card" data-prompt="Simulate gpt transformer multi-head self-attention QKV matrices">
+                            <strong>GPT Self-Attention</strong>
+                            <span>Simulate QKV attention heatmaps & causal masking</span>
+                        </div>
+                        <div class="suggestion-card" data-prompt="Compare LLM model benchmark scores MMLU HumanEval MATH and GPQA">
+                            <strong>LLM Benchmarks</strong>
+                            <span>Objective benchmark scores & platform comparison</span>
+                        </div>
+                        <div class="suggestion-card" data-prompt="Run self-evolution prompt optimization and telemetry benchmark">
+                            <strong>AI Evolution Hub</strong>
+                            <span>Auto-tune prompts, routing & benchmark latency</span>
+                        </div>
+                        <div class="suggestion-card" data-prompt="Perform deep research fact checking across Google Arxiv Wikipedia GitHub with citations">
+                            <strong>Deep Research Engine</strong>
+                            <span>Cross-reference sources with fact citations</span>
+                        </div>
+                        <div class="suggestion-card" data-prompt="View active plugins weather finance chess python sandbox">
+                            <strong>Plugin Ecosystem</strong>
+                            <span>Sandboxed Weather, Stockfish, & Finance APIs</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat history bubbles will be dynamically appended here -->
+            </div>
+
+            <!-- Floating ChatGPT Input Row -->
+            <div class="chat-input-container">
+                <div class="chat-input-bar">
+                    <button id="btn-attach-files" class="chat-bar-btn" title="Upload Sources">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </button>
+                    <textarea id="chat-user-input" rows="1" placeholder="Ask OmniAI anything (science, coding, math, psychology, etc.) or generate images/videos..."></textarea>
+                    <div class="input-actions-right">
+                        <button id="btn-chat-mic" class="chat-bar-btn" title="Voice Input">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+                        </button>
+                        <button id="btn-chat-send" class="btn-chat-send-icon" title="Send Message">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="input-disclaimer">OmniAI Unlimited access enabled. Files and URLs in sidebar automatically build context.</div>
+            </div>
+
+            <!-- Audio Recording Modal / Overlay -->
+            <div id="audio-wave-overlay" class="audio-wave-overlay hidden">
+                <div class="wave-box">
+                    <div class="wave-lines">
+                        <span class="wave-line"></span>
+                        <span class="wave-line"></span>
+                        <span class="wave-line"></span>
+                        <span class="wave-line"></span>
+                        <span class="wave-line"></span>
+                    </div>
+                    <span class="wave-text">Listening to Siyar...</span>
+                    <button id="btn-close-wave" class="btn-secondary" style="margin-top: 16px;">Done</button>
+                </div>
+            </div>
+
+         </main>
+         
+         <!-- Right side Agent Execution Drawer -->
+         <aside class="agent-panel glass-panel collapsed" id="agent-panel">
+             <div class="agent-panel-header">
+                 <div class="agent-status-badge">
+                     <span class="agent-pulse"></span>
+                     <span>AGENT ENGINE ACTIVE</span>
+                 </div>
+                 <button id="btn-close-agent-panel" title="Close Panel" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center;">✕</button>
+             </div>
+             <div class="agent-panel-content">
+                 <div class="agent-section">
+                     <div class="agent-section-title">Current Agent Plan</div>
+                     <div class="agent-plan-list" id="agent-plan-list">
+                         <div class="plan-step active" id="plan-step-1">
+                             <span class="step-num">1</span>
+                             <span class="step-text">Awaiting User Instruction...</span>
+                         </div>
+                         <div class="plan-step" id="plan-step-2">
+                             <span class="step-num">2</span>
+                             <span class="step-text">Planning execution path...</span>
+                         </div>
+                         <div class="plan-step" id="plan-step-3">
+                             <span class="step-num">3</span>
+                             <span class="step-text">Grounding with search/docs...</span>
+                         </div>
+                         <div class="plan-step" id="plan-step-4">
+                             <span class="step-num">4</span>
+                             <span class="step-text">Executing LLM pipeline...</span>
+                         </div>
+                     </div>
+                 </div>
+                 <div class="agent-section" style="flex: 1; display: flex; flex-direction: column;">
+                     <div class="agent-section-title">Live Terminal Console</div>
+                     <div class="agent-terminal" id="terminal-rows">
+                         <div class="terminal-line system-line">[SYSTEM] Agent System Node initialized. Ready to execute goals.</div>
+                     </div>
+                 </div>
+             </div>
+         </aside>
+     </div>
+
+    <script src="mockData.js"></script>
+    <script src="app.js"></script>
+    <script src="updater.js"></script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+# Helper deployment scripts with tokens
+create_and_push.py
+
+# Local Portable Git & GitHub CLI executables
+git/
+gh.exe
+gh_temp/
+gh.zip
+
+# Temporary & log files
+*.log
+*.tmp
+__pycache__/
+.vscode/
+.idea/
+
+# OS metadata
+.DS_Store
+Thumbs.db
