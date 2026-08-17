@@ -2503,7 +2503,29 @@ We have attached full script and code files corresponding to this domain in the 
     }
 };
 
+// ─── API Key Persistence (localStorage) ────────────────────────────────────
+
+function saveKey(input) {
+    if (input.value.trim()) {
+        localStorage.setItem('omni_key_' + input.id, input.value.trim());
+    } else {
+        localStorage.removeItem('omni_key_' + input.id);
+    }
+}
+
+function loadSavedKeys() {
+    const keyIds = ['key-openai', 'key-gemini', 'key-anthropic', 'key-groq'];
+    keyIds.forEach(id => {
+        const saved = localStorage.getItem('omni_key_' + id);
+        if (saved) {
+            const el = document.getElementById(id);
+            if (el) el.value = saved;
+        }
+    });
+}
+
 // Start Conversational Application
 document.addEventListener('DOMContentLoaded', () => {
     appState.init();
+    loadSavedKeys();
 });
