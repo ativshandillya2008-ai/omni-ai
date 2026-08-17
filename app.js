@@ -197,9 +197,17 @@ const appState = {
         };
 
         // Check if user is already logged in from previous session
-        const savedName = localStorage.getItem('omni_user_name');
+        let savedName = localStorage.getItem('omni_user_name');
         const savedRole = localStorage.getItem('omni_user_role');
         const savedIsAdmin = localStorage.getItem('omni_is_owner') === 'true';
+
+        if (savedName) {
+            // Auto-migrate old misspelled name if stored in browser localStorage
+            if (savedName.includes('Sandillya')) {
+                savedName = savedName.replace('Sandillya', 'Shandillya');
+                localStorage.setItem('omni_user_name', savedName);
+            }
+        }
 
         if (savedName && savedRole) {
             applyUserState(savedName, savedRole, savedIsAdmin, localStorage.getItem('omni_user_email') || '');
