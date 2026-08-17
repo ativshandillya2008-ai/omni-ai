@@ -221,7 +221,7 @@ const appState = {
         };
         window.loginAsGoogleAdmin = () => {
             if (googleModal) googleModal.classList.add('hidden');
-            applyUserState("Ativ Sandillya (Admin)", "Admin Mode", true, ADMIN_EMAIL);
+            applyUserState("Ativ Shandillya (Admin)", "Admin Mode", true, ADMIN_EMAIL);
             this.logTerminal("[AUTH] 1-Click Google Sign-In: Admin Account verified (ativsandillya2008@gmail.com). Full Owner privileges unlocked.", "success-line");
         };
         window.loginAsGoogleUser = () => {
@@ -232,7 +232,7 @@ const appState = {
             }
             if (googleModal) googleModal.classList.add('hidden');
             if (email === ADMIN_EMAIL.toLowerCase()) {
-                applyUserState("Ativ Sandillya (Admin)", "Admin Mode", true, email);
+                applyUserState("Ativ Shandillya (Admin)", "Admin Mode", true, email);
                 this.logTerminal("[AUTH] Google Sign-In: Admin Account verified (ativsandillya2008@gmail.com). Full Owner privileges unlocked.", "success-line");
             } else {
                 const emailUsername = email.split('@')[0];
@@ -262,7 +262,7 @@ const appState = {
             const key = passInput.value.trim();
             if (key === 'admin') {
                 localStorage.setItem('omni_owner_key', 'admin');
-                applyUserState("Ativ Sandillya (Owner)", "Admin Mode", true, ADMIN_EMAIL);
+                applyUserState("Ativ Shandillya (Owner)", "Admin Mode", true, ADMIN_EMAIL);
                 this.logTerminal("[AUTH] Security Passkey verified. Admin Owner Privileges active.", "success-line");
             } else {
                 alert("Invalid Owner Security Passkey.");
