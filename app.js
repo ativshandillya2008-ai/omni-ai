@@ -1022,6 +1022,7 @@ const appState = {
 
         let aiReplyText = "";
         let mediaCard = null;
+        let isImageGenRequest = false;
 
         this.updateAgentPlan(3);
         this.logTerminal(`[REVIEWER AGENT] Validating constraints. Document sources loaded: ${this.sources.length}`, "system-line");
@@ -1307,14 +1308,10 @@ const appState = {
                 prompt: userText
             };
         }
-        // 9. Image Generation (Flux.1 Pro Engine)
+        // 9. Image Generation (Gemini Live API → Pollinations.ai fallback)
         else if (userTextLower.includes('image') || userTextLower.includes('picture') || userTextLower.includes('photo') || userTextLower.includes('draw') || userTextLower.includes('paint') || userTextLower.includes('sketch') || userTextLower.includes('art') || userTextLower.includes('figure')) {
-            aiReplyText = `Generating high-resolution AI photo for you on the spot using Flux.1 Pro Engine... Done! Use the mode tabs below to view the image or switch to motion video:`;
-            mediaCard = {
-                type: 'image-gen',
-                title: 'Flux.1 Pro Generative Output',
-                prompt: userText
-            };
+            isImageGenRequest = true;
+            aiReplyText = `Generating image with Gemini Image API…`;
         }
         // 10. Video Generation (Sora 2 Motion Engine)
         else if (userTextLower.includes('video') || userTextLower.includes('movie') || userTextLower.includes('clip') || userTextLower.includes('animate') || userTextLower.includes('motion') || userTextLower.includes('sora')) {
@@ -1400,7 +1397,31 @@ const appState = {
                     }
                 }
             }
-            
+
+            // Image Generation via Gemini API (or Pollinations.ai fallback)
+            if (isImageGenRequest) {
+                this.logTerminal("[IMAGE ENGINE] Routing to Gemini Image Generation API...", "system-line");
+                if (geminiKey) {
+                    try {
+                        aiReplyText = await this.fetchGeminiImage(geminiKey, userText);
+                        this.logTerminal("[IMAGE ENGINE] Gemini image generation succeeded.", "success-line");
+                    } catch (imgErr) {
+                        this.logTerminal(`[IMAGE ENGINE] Gemini image API failed: ${imgErr.message}. Falling back to Pollinations.ai...`, "warning-line");
+                        const seed = Math.floor(Math.random() * 999999);
+                        const encodedPrompt = encodeURIComponent(userText);
+                        const fallbackUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=512&height=512&seed=${seed}&nologo=true&model=flux`;
+                        aiReplyText = `Image generation via Gemini API failed: ${imgErr.message}.\n\nFalling back to Pollinations.ai Flux engine:\n\n<div style="margin-top:10px;"><img src="${fallbackUrl}" alt="${userText.substring(0,60)}" style="max-width:100%;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.4);" onload="this.style.opacity=1" onerror="this.parentNode.innerHTML='<span style=color:var(--text-muted)>Image failed to load. <a href=${fallbackUrl} target=_blank style=color:#8b5cf6>Try direct link</a></span>'" /><br><a href="${fallbackUrl}" target="_blank" style="font-size:10px;color:var(--text-muted);">&#x1F517; Open full resolution</a></div>`;
+                    }
+                } else {
+                    // No Gemini key — use Pollinations.ai directly
+                    this.logTerminal("[IMAGE ENGINE] No Gemini key found. Using Pollinations.ai Flux engine...", "warning-line");
+                    const seed = Math.floor(Math.random() * 999999);
+                    const encodedPrompt = encodeURIComponent(userText);
+                    const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=512&height=512&seed=${seed}&nologo=true&model=flux`;
+                    aiReplyText = `No Gemini API key configured. Generating via Pollinations.ai Flux engine:\n\n<div style="margin-top:10px;"><img src="${pollinationsUrl}" alt="${userText.substring(0,60)}" style="max-width:100%;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.4);" onload="this.style.opacity=1" onerror="this.parentNode.innerHTML='<span style=color:var(--text-muted)>Image failed. <a href=${pollinationsUrl} target=_blank style=color:#8b5cf6>Try direct link</a></span>'" /><br><a href="${pollinationsUrl}" target="_blank" style="font-size:10px;color:var(--text-muted);">&#x1F517; Open full resolution</a></div>`;
+                }
+            }
+
             if (aiReplyText) {
                 this.logTerminal("LLM pipeline response returned successfully.", "success-line");
             }
@@ -2353,6 +2374,80 @@ We have attached full script and code files corresponding to this domain in the 
             }
         }
         throw new Error(`Google API Error: ${lastError ? lastError.message : 'Connection failed'}`);
+    },
+
+    async fetchGeminiImage(key, prompt) {
+        // Gemini image generation — tries gemini-2.0-flash-preview-image-generation first,
+        // then falls back to imagen-3.0-generate-002 (Imagen 3).
+        const models = [
+            'gemini-2.0-flash-preview-image-generation',
+            'imagen-3.0-generate-002'
+        ];
+
+        let lastError = null;
+        for (const model of models) {
+            try {
+                let requestBody;
+                let urlPath;
+
+                if (model.startsWith('imagen')) {
+                    // Imagen 3 uses the predict endpoint
+                    urlPath = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predict?key=${key}`;
+                    requestBody = {
+                        instances: [{ prompt }],
+                        parameters: { sampleCount: 1 }
+                    };
+                } else {
+                    // gemini-2.0-flash-preview-image-generation uses generateContent with responseModalities
+                    urlPath = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+                    requestBody = {
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
+                    };
+                }
+
+                const res = await fetch(urlPath, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const data = await res.json();
+
+                if (data.error) {
+                    throw new Error(data.error.message || JSON.stringify(data.error));
+                }
+
+                // Extract base64 image from Gemini generateContent response
+                if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+                    const parts = data.candidates[0].content.parts || [];
+                    for (const part of parts) {
+                        if (part.inlineData && part.inlineData.mimeType && part.inlineData.data) {
+                            const mimeType = part.inlineData.mimeType;
+                            const b64 = part.inlineData.data;
+                            const dataUri = `data:${mimeType};base64,${b64}`;
+                            return `Here is your generated image:\n\n<div style="margin-top:10px; display:flex; flex-direction:column; align-items:flex-start; gap:8px;"><img src="${dataUri}" alt="${prompt.substring(0,60)}" style="max-width:100%;max-height:480px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.4);display:block;" /><span style="font-size:10px;color:var(--text-muted);">Generated by Gemini ${model} &bull; Prompt: <em>${prompt.substring(0,80)}</em></span></div>`;
+                        }
+                    }
+                    throw new Error('No image data in Gemini response — model may not support image output on this key.');
+                }
+
+                // Imagen 3 predict response format
+                if (data.predictions) {
+                    const pred = data.predictions[0];
+                    if (pred && pred.bytesBase64Encoded) {
+                        const dataUri = `data:image/png;base64,${pred.bytesBase64Encoded}`;
+                        return `Here is your generated image:\n\n<div style="margin-top:10px; display:flex; flex-direction:column; align-items:flex-start; gap:8px;"><img src="${dataUri}" alt="${prompt.substring(0,60)}" style="max-width:100%;max-height:480px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.4);display:block;" /><span style="font-size:10px;color:var(--text-muted);">Generated by Imagen 3 &bull; Prompt: <em>${prompt.substring(0,80)}</em></span></div>`;
+                    }
+                }
+
+                throw new Error('Unexpected response format from image generation API.');
+            } catch (err) {
+                lastError = err;
+                console.warn(`[fetchGeminiImage] Model ${model} failed:`, err.message);
+            }
+        }
+        throw new Error(`Gemini Image Generation failed: ${lastError ? lastError.message : 'All models exhausted'}`);
     },
 
     async fetchAnthropicChat(key, model, prompt) {
