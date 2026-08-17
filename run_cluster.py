@@ -10,7 +10,7 @@ brain_scratch_dir = r"C:\Users\siyar\.gemini\antigravity\brain\003abe96-923e-49f
 os.makedirs(brain_scratch_dir, exist_ok=True)
 url_file = os.path.join(brain_scratch_dir, "tunnel_url.txt")
 
-subdomain = "siyar-omni-ai"
+subdomain = "ativ-omni-ai"
 
 def run_server():
     print("[SERVER] Starting local python server with search routing on port 8088...")

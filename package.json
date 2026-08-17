@@ -1,0 +1,31 @@
+{
+  "name": "omni-ai",
+  "version": "1.0.0",
+  "description": "OmniAI Universal Multimodal Intelligence Workspace - Multi-Model Router & Dual Generative Studio",
+  "main": "server.py",
+  "scripts": {
+    "start": "python server.py",
+    "cluster": "python run_cluster.py",
+    "test": "python keep_alive.py"
+  },
+  "keywords": [
+    "ai",
+    "llm-router",
+    "multimodal",
+    "gemini",
+    "claude",
+    "groq",
+    "quantum-simulator",
+    "micrograd"
+  ],
+  "author": "Ativ Shandillya <ativsandillya2008@gmail.com> (https://github.com/ativshandillya2008-ai)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ativshandillya2008-ai/omni-ai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ativshandillya2008-ai/omni-ai/issues"
+  },
+  "homepage": "https://github.com/ativshandillya2008-ai/omni-ai#readme"
+}

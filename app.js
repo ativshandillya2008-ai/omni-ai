@@ -12,7 +12,7 @@ const appState = {
                 {
                     sender: 'ai',
                     name: 'Gemini 1.5 Ultra',
-                    text: 'Hello Siyar! I am your global co-pilot. I have full context of all NotebookLM documents in your sidebar. Type your prompt below to generate text, code sandboxes, detailed research, images, or videos in-line!'
+                    text: 'Hello Ativ! I am your global co-pilot. I have full context of all NotebookLM documents in your sidebar. Type your prompt below to generate text, code sandboxes, detailed research, images, or videos in-line!'
                 }
             ]
         }
@@ -529,7 +529,7 @@ const appState = {
                 const initialGreeting = {
                     sender: 'ai',
                     name: selectedModelText,
-                    text: `Hello Siyar! I am your ${selectedModelText} assistant. How can I help you today? Type any prompt below to ask questions, solve math, request code sandboxes, or generate images and videos!`
+                    text: `Hello Ativ! I am your ${selectedModelText} assistant. How can I help you today? Type any prompt below to ask questions, solve math, request code sandboxes, or generate images and videos!`
                 };
 
                 this.conversations[id] = {
@@ -755,7 +755,7 @@ const appState = {
         if (welcomeState) welcomeState.classList.add('hidden');
 
         // Append User Message
-        const userMsg = { sender: 'user', name: 'Siyar (Owner)', text: text };
+        const userMsg = { sender: 'user', name: 'Ativ Shandillya (Owner)', text: text };
         this.conversations[this.activeThreadId].messages.push(userMsg);
         this.renderMessageBubble(userMsg);
 
