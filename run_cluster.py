@@ -5,7 +5,7 @@ import re
 import sys
 
 # Paths
-workspace_dir = r"C:\Users\siyar\.gemini\antigravity\scratch\omni-orchestrator"
+workspace_dir = os.path.dirname(os.path.abspath(__file__))
 brain_scratch_dir = r"C:\Users\siyar\.gemini\antigravity\brain\003abe96-923e-49fe-b7fc-7576e406e509\scratch"
 os.makedirs(brain_scratch_dir, exist_ok=True)
 url_file = os.path.join(brain_scratch_dir, "tunnel_url.txt")

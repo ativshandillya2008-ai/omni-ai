@@ -6,13 +6,69 @@ import json
 import re
 import os
 import traceback
+import time
+import threading
+from collections import defaultdict
 
 PORT = 8088
-DIRECTORY = r"C:\Users\siyar\.gemini\antigravity\scratch\omni-orchestrator"
+DIRECTORY = os.path.dirname(os.path.abspath(__file__))
+
+# ─── In-Memory Rate Limiter ───────────────────────────────────────────────────
+RATE_LIMIT_LOCK = threading.Lock()
+RATE_LIMIT_STORE = defaultdict(list)
+RATE_LIMIT_MAX_REQUESTS = 60  # Maximum 60 requests per minute per IP
+RATE_LIMIT_WINDOW = 60        # Sliding window in seconds
+
+def is_rate_limited(ip, max_requests=RATE_LIMIT_MAX_REQUESTS, window=RATE_LIMIT_WINDOW):
+    now = time.time()
+    with RATE_LIMIT_LOCK:
+        timestamps = RATE_LIMIT_STORE[ip]
+        valid_timestamps = [t for t in timestamps if now - t < window]
+        if len(valid_timestamps) >= max_requests:
+            RATE_LIMIT_STORE[ip] = valid_timestamps
+            return True
+        valid_timestamps.append(now)
+        RATE_LIMIT_STORE[ip] = valid_timestamps
+        return False
+
+# ─── Safe Capped Stream Reader ────────────────────────────────────────────────
+MAX_DOWNLOAD_BYTES = 10 * 1024 * 1024  # 10 MB maximum
+CHUNK_SIZE = 8192                      # 8 KB per chunk
+
+def read_response_capped(res, max_bytes=MAX_DOWNLOAD_BYTES, chunk_size=CHUNK_SIZE):
+    """
+    Reads an HTTP response stream in chunks up to max_bytes.
+    Rejects immediately if Content-Length header exceeds limit.
+    Enforces a running byte-count cap during read to prevent memory exhaustion.
+    """
+    cl = res.headers.get("Content-Length")
+    if cl:
+        try:
+            if int(cl) > max_bytes:
+                raise ValueError(f"Content-Length ({cl} bytes) exceeds maximum limit of {max_bytes // (1024 * 1024)}MB.")
+        except ValueError as ve:
+            if "exceeds maximum limit" in str(ve):
+                raise
+    
+    chunks = []
+    total_bytes = 0
+    while True:
+        chunk = res.read(chunk_size)
+        if not chunk:
+            break
+        total_bytes += len(chunk)
+        if total_bytes > max_bytes:
+            raise ValueError(f"Download size exceeded maximum limit of {max_bytes // (1024 * 1024)}MB during transfer.")
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 def log_debug(msg):
-    with open(r"C:\Users\siyar\.gemini\antigravity\brain\003abe96-923e-49fe-b7fc-7576e406e509\scratch\server_debug.log", "a") as f:
-        f.write(msg + "\n")
+    try:
+        log_path = os.path.join(DIRECTORY, "server_debug.log")
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}\n")
+    except Exception:
+        pass
 
 class CustomHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -20,6 +76,20 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
         
     def do_GET(self):
         parsed_url = urllib.parse.urlparse(self.path)
+
+        # Apply rate limiting to all API endpoints
+        if parsed_url.path in ("/api/video", "/api/search", "/api/drive-proxy"):
+            client_ip = self.client_address[0]
+            if is_rate_limited(client_ip):
+                self.send_response(429)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Retry-After", "60")
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "error": "Too Many Requests: Rate limit of 60 req/min exceeded. Please slow down."
+                }).encode("utf-8"))
+                return
+
         if parsed_url.path == "/api/video":
             params = urllib.parse.parse_qs(parsed_url.query)
             query = params.get("q", [""])[0]
@@ -55,9 +125,9 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
             
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(json.dumps({"videoUrl": video_url}).encode("utf-8"))
+
         elif parsed_url.path == "/api/search":
             params = urllib.parse.parse_qs(parsed_url.query)
             query = params.get("q", [""])[0]
@@ -92,9 +162,9 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
             
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(json.dumps({"results": results}).encode("utf-8"))
+
         elif parsed_url.path == "/api/drive-proxy":
             params = urllib.parse.parse_qs(parsed_url.query)
             drive_url = params.get("url", [""])[0]
@@ -131,7 +201,7 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                     )
                     
                     with urllib.request.urlopen(req, timeout=8) as res:
-                        raw_data = res.read()
+                        raw_data = read_response_capped(res, max_bytes=MAX_DOWNLOAD_BYTES, chunk_size=CHUNK_SIZE)
                         
                         # Inspect the content-type header
                         content_type = res.headers.get("Content-Type", "")
@@ -152,7 +222,7 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                                     headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
                                 )
                                 with urllib.request.urlopen(conf_req, timeout=8) as conf_res:
-                                    raw_data = conf_res.read()
+                                    raw_data = read_response_capped(conf_res, max_bytes=MAX_DOWNLOAD_BYTES, chunk_size=CHUNK_SIZE)
                                     content_type = conf_res.headers.get("Content-Type", "")
                             
                             if "html" in content_type.lower():
@@ -173,7 +243,6 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                 
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(json.dumps({
                 "fileId": file_id,
@@ -186,6 +255,6 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
 if __name__ == "__main__":
     os.chdir(DIRECTORY)
     socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("0.0.0.0", PORT), CustomHandler) as httpd:
-        print(f"[SERVER] Serving HTTP on 0.0.0.0 port {PORT}...")
+    with socketserver.TCPServer(("127.0.0.1", PORT), CustomHandler) as httpd:
+        print(f"[SERVER] Serving HTTP on 127.0.0.1 port {PORT} (localhost-only)...")
         httpd.serve_forever()

@@ -5,7 +5,7 @@ import sys
 import time
 
 PORT = 8088
-DIRECTORY = r"C:\Users\siyar\.gemini\antigravity\scratch\omni-orchestrator"
+DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 
 def is_server_working(port):
     try:
