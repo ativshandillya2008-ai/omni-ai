@@ -2481,15 +2481,20 @@ We have attached full script and code files corresponding to this domain in the 
     },
 
     async fetchGroqChat(key, requestedModel, prompt) {
+        const cleanKey = (key || '').trim();
+        if (!cleanKey) {
+            throw new Error("Groq API key is missing. Please enter your Groq API key in the credentials panel.");
+        }
+
+        // Active production models on Groq
         const groqModels = [
             requestedModel || 'llama-3.3-70b-versatile',
             'llama-3.3-70b-versatile',
             'llama-3.1-8b-instant',
-            'llama-3.1-70b-versatile',
-            'llama3-70b-8192',
-            'llama3-8b-8192',
-            'mixtral-8x7b-32768',
-            'gemma2-9b-it'
+            'deepseek-r1-distill-llama-70b',
+            'llama-3.2-11b-vision-preview',
+            'llama-3.2-3b-preview',
+            'llama-3.2-1b-preview'
         ];
 
         const uniqueModels = [...new Set(groqModels)];
@@ -2501,7 +2506,7 @@ We have attached full script and code files corresponding to this domain in the 
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${key}`
+                        'Authorization': `Bearer ${cleanKey}`
                     },
                     body: JSON.stringify({
                         model: model,
@@ -2511,14 +2516,21 @@ We have attached full script and code files corresponding to this domain in the 
                 });
                 const data = await res.json();
                 if (data.error) {
-                    throw new Error(data.error.message);
+                    // If the API key is completely invalid, fail immediately with clear feedback
+                    if (data.error.code === 'invalid_api_key' || (data.error.message && data.error.message.toLowerCase().includes('invalid api key'))) {
+                        throw new Error("Invalid Groq API Key. Please verify the key in your sidebar credentials panel.");
+                    }
+                    throw new Error(data.error.message || JSON.stringify(data.error));
                 }
                 if (data.choices && data.choices[0] && data.choices[0].message) {
                     return data.choices[0].message.content;
                 }
             } catch (err) {
                 lastError = err;
-                console.warn(`[fetchGroqChat] Model ${model} failed:`, err.message);
+                console.warn(`[fetchGroqChat] Model ${model} attempt failed:`, err.message);
+                if (err.message && err.message.includes('Invalid Groq API Key')) {
+                    throw err;
+                }
             }
         }
         throw new Error(lastError ? lastError.message : 'Groq API connection failed');
