@@ -29,7 +29,7 @@ To provide full transparency for technical reviewers and recruiters, the workspa
 | **Web Search Scraper** | Live DuckDuckGo search endpoint (`/api/search` in `server.py`) | 🟢 **Live Production API** |
 | **Tenor Video Scraper** | Live Tenor MP4 motion loop finder (`/api/video` in `server.py`) | 🟢 **Live Production API** |
 | **Google Drive Extractor** | Live file text & token confirmation bypass (`/api/drive-proxy` in `server.py`) | 🟢 **Live Production API** |
-| **Gemini Image Generation** | `gemini-2.0-flash-preview-image-generation` → `imagen-3.0-generate-002` fallback — returns base64 inline | 🟢 **Live Production API (Gemini)** |
+| **Gemini Image Generation** | `gemini-2.5-flash-image`, `nano-banana-pro-preview` with Flux fallback | 🟢 **Live Production API (Gemini)** |
 | **Sora 2 Motion Video Studio** | Tenor MP4 video loop player with HTML5 canvas fluid motion fallback | 🟡 **Curated Loop & Canvas Generator** |
 | **Interactive Simulators** | Bloch Sphere qubit calculator, Micrograd autograd DAG, Chemistry viewer | 🟡 **Interactive Client-Side Engine** |
 
