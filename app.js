@@ -2486,15 +2486,11 @@ We have attached full script and code files corresponding to this domain in the 
             throw new Error("Groq API key is missing. Please enter your Groq API key in the credentials panel.");
         }
 
-        // Active production models on Groq
+        // Active production flagship models on Groq
         const groqModels = [
             requestedModel || 'llama-3.3-70b-versatile',
             'llama-3.3-70b-versatile',
-            'llama-3.1-8b-instant',
-            'deepseek-r1-distill-llama-70b',
-            'llama-3.2-11b-vision-preview',
-            'llama-3.2-3b-preview',
-            'llama-3.2-1b-preview'
+            'llama-3.1-8b-instant'
         ];
 
         const uniqueModels = [...new Set(groqModels)];
@@ -2514,14 +2510,17 @@ We have attached full script and code files corresponding to this domain in the 
                         temperature: 0.7
                     })
                 });
+
                 const data = await res.json();
+
+                if (res.status === 401 || (data.error && (data.error.code === 'invalid_api_key' || (data.error.message && data.error.message.toLowerCase().includes('invalid api key'))))) {
+                    throw new Error("Invalid Groq API Key. Please generate a fresh key at https://console.groq.com/keys and paste it into the Groq Key slot in the sidebar.");
+                }
+
                 if (data.error) {
-                    // If the API key is completely invalid, fail immediately with clear feedback
-                    if (data.error.code === 'invalid_api_key' || (data.error.message && data.error.message.toLowerCase().includes('invalid api key'))) {
-                        throw new Error("Invalid Groq API Key. Please verify the key in your sidebar credentials panel.");
-                    }
                     throw new Error(data.error.message || JSON.stringify(data.error));
                 }
+
                 if (data.choices && data.choices[0] && data.choices[0].message) {
                     return data.choices[0].message.content;
                 }
