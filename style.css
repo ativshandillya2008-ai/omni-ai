@@ -726,7 +726,7 @@ body {
 }
 
 .credentials-content:not(.collapsed) {
-    max-height: 200px;
+    max-height: 450px;
     margin-top: 6px;
 }
 
