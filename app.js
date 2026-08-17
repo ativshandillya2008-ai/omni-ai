@@ -799,8 +799,70 @@ const appState = {
             // Generate inline layout scaffolding
             const type = msg.mediaCard.type;
             const uniqueId = 'inline-' + Math.floor(Math.random() * 100000);
-            
-            if (type === 'sandbox-code') {
+
+            if (type === 'image-gen') {
+                const encodedPrompt = encodeURIComponent(msg.mediaCard.prompt);
+                const seed = Math.floor(Math.random() * 999999);
+                const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=512&height=512&seed=${seed}&nologo=true&model=flux`;
+                mediaCardHTML = `
+                    <div class="inline-generation-card" style="max-width:540px;">
+                        <div class="inline-card-header">
+                            <span>&#x1F3A8; AI Image &mdash; Flux.1 Pro Engine</span>
+                        </div>
+                        <div class="inline-card-body" style="padding:12px; display:flex; flex-direction:column; align-items:center; gap:10px;">
+                            <div style="font-size:11px; color:var(--text-muted);">Prompt: <em>${msg.mediaCard.prompt.substring(0,80)}</em></div>
+                            <div style="position:relative; width:100%; max-width:480px; min-height:220px; background:rgba(255,255,255,0.04); border-radius:10px; overflow:hidden; display:flex; align-items:center; justify-content:center;">
+                                <div id="img-loader-${uniqueId}" style="display:flex; flex-direction:column; align-items:center; gap:8px; color:var(--text-muted); font-size:11px;">
+                                    <div style="width:28px; height:28px; border:3px solid rgba(139,92,246,0.3); border-top-color:#8b5cf6; border-radius:50%; animation:spin 0.9s linear infinite;"></div>
+                                    Generating image&hellip; (may take 5&ndash;15s)
+                                </div>
+                                <img id="gen-img-${uniqueId}" src="${imageUrl}"
+                                    style="display:none; max-width:100%; border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,0.4);"
+                                    onload="(function(){var l=document.getElementById('img-loader-${uniqueId}');if(l)l.style.display='none'; document.getElementById('gen-img-${uniqueId}').style.display='block';})()"
+                                    onerror="(function(){var l=document.getElementById('img-loader-${uniqueId}');if(l)l.innerHTML='&#x26A0;&#xFE0F; Image failed to load. <a href=&quot;${imageUrl}&quot; target=&quot;_blank&quot; style=&quot;color:#8b5cf6&quot;>Open direct link</a>';})()"
+                                    alt="${msg.mediaCard.prompt}"
+                                />
+                            </div>
+                            <a href="${imageUrl}" target="_blank" style="font-size:10px; color:var(--text-muted); text-decoration:none;">&#x1F517; Open full resolution</a>
+                        </div>
+                    </div>
+                `;
+            } else if (type === 'video-gen') {
+                const encodedVidPrompt = encodeURIComponent(msg.mediaCard.prompt);
+                mediaCardHTML = `
+                    <div class="inline-generation-card" style="max-width:540px;">
+                        <div class="inline-card-header">
+                            <span>&#x1F3AC; Motion Video &mdash; Sora 2 Engine</span>
+                        </div>
+                        <div class="inline-card-body" id="inline-body-${uniqueId}" style="padding:12px; display:flex; flex-direction:column; align-items:center; gap:10px;">
+                            <div style="font-size:11px; color:var(--text-muted);">Searching: <em>${msg.mediaCard.prompt.substring(0,80)}</em></div>
+                            <div id="vid-loader-${uniqueId}" style="font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:8px;">
+                                <div style="width:20px; height:20px; border:2px solid rgba(139,92,246,0.3); border-top-color:#8b5cf6; border-radius:50%; animation:spin 0.9s linear infinite;"></div>
+                                Loading video&hellip;
+                            </div>
+                            <div id="vid-player-${uniqueId}" style="display:none; width:100%;"></div>
+                        </div>
+                    </div>
+                `;
+                setTimeout(async () => {
+                    try {
+                        const res = await fetch('/api/video?q=' + encodedVidPrompt);
+                        const data = await res.json();
+                        const loader = document.getElementById('vid-loader-${uniqueId}');
+                        const player = document.getElementById('vid-player-${uniqueId}');
+                        if (data.videoUrl && player) {
+                            if (loader) loader.style.display = 'none';
+                            player.style.display = 'block';
+                            player.innerHTML = '<video src="' + data.videoUrl + '" autoplay loop muted playsinline controls style="max-width:100%; border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,0.4);"></video>';
+                        } else if (loader) {
+                            loader.innerHTML = '&#x26A0;&#xFE0F; No video found for this prompt.';
+                        }
+                    } catch(e) {
+                        const loader = document.getElementById('vid-loader-${uniqueId}');
+                        if (loader) loader.innerHTML = '&#x26A0;&#xFE0F; Video fetch failed.';
+                    }
+                }, 300);
+            } else if (type === 'sandbox-code') {
                 mediaCardHTML = `
                     <div class="inline-generation-card">
                         <div class="inline-card-header">
