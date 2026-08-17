@@ -840,13 +840,13 @@ const appState = {
                 mediaCardHTML = `
                     <div class="inline-generation-card" style="max-width:540px;">
                         <div class="inline-card-header">
-                            <span>&#x1F3AC; Motion Video &mdash; Sora 2 Engine</span>
+                            <span>&#x1F3AC; Video Generation &mdash; Luma Dream Machine / Motion Studio</span>
                         </div>
                         <div class="inline-card-body" id="inline-body-${uniqueId}" style="padding:12px; display:flex; flex-direction:column; align-items:center; gap:10px;">
-                            <div style="font-size:11px; color:var(--text-muted);">Searching: <em>${msg.mediaCard.prompt.substring(0,80)}</em></div>
+                            <div style="font-size:11px; color:var(--text-muted);">Prompt: <em>${msg.mediaCard.prompt.substring(0,80)}</em></div>
                             <div id="vid-loader-${uniqueId}" style="font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:8px;">
                                 <div style="width:20px; height:20px; border:2px solid rgba(139,92,246,0.3); border-top-color:#8b5cf6; border-radius:50%; animation:spin 0.9s linear infinite;"></div>
-                                Loading video&hellip;
+                                Rendering / fetching video&hellip;
                             </div>
                             <div id="vid-player-${uniqueId}" style="display:none; width:100%;"></div>
                         </div>
@@ -854,20 +854,26 @@ const appState = {
                 `;
                 setTimeout(async () => {
                     try {
-                        const res = await fetch('/api/video?q=' + encodedVidPrompt);
+                        const lumaKey = document.getElementById('key-luma') ? document.getElementById('key-luma').value.trim() : '';
+                        const fetchUrl = '/api/video?q=' + encodedVidPrompt + (lumaKey ? '&luma_key=' + encodeURIComponent(lumaKey) : '');
+                        const res = await fetch(fetchUrl);
                         const data = await res.json();
-                        const loader = document.getElementById('vid-loader-${uniqueId}');
-                        const player = document.getElementById('vid-player-${uniqueId}');
+                        const loader = document.getElementById(`vid-loader-${uniqueId}`);
+                        const player = document.getElementById(`vid-player-${uniqueId}`);
                         if (data.videoUrl && player) {
                             if (loader) loader.style.display = 'none';
                             player.style.display = 'block';
-                            player.innerHTML = '<video src="' + data.videoUrl + '" autoplay loop muted playsinline controls style="max-width:100%; border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,0.4);"></video>';
+                            const engineLabel = data.engine || 'Motion Engine';
+                            player.innerHTML = `
+                                <video src="${data.videoUrl}" autoplay loop muted playsinline controls style="max-width:100%; border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,0.4); display:block;"></video>
+                                <div style="font-size:10px; color:var(--text-muted); margin-top:6px; text-align:center;">🎬 Rendered with: <strong>${engineLabel}</strong></div>
+                            `;
                         } else if (loader) {
-                            loader.innerHTML = '&#x26A0;&#xFE0F; No video found for this prompt.';
+                            loader.innerHTML = '&#x26A0;&#xFE0F; No video generated for this prompt.';
                         }
                     } catch(e) {
-                        const loader = document.getElementById('vid-loader-${uniqueId}');
-                        if (loader) loader.innerHTML = '&#x26A0;&#xFE0F; Video fetch failed.';
+                        const loader = document.getElementById(`vid-loader-${uniqueId}`);
+                        if (loader) loader.innerHTML = '&#x26A0;&#xFE0F; Video render/fetch failed.';
                     }
                 }, 300);
             } else if (type === 'sandbox-code') {
@@ -2506,7 +2512,7 @@ function saveKey(input) {
 }
 
 function loadSavedKeys() {
-    const keyIds = ['key-openai', 'key-gemini', 'key-anthropic', 'key-groq'];
+    const keyIds = ['key-openai', 'key-gemini', 'key-anthropic', 'key-groq', 'key-luma'];
     keyIds.forEach(id => {
         const saved = localStorage.getItem('omni_key_' + id);
         if (saved) {

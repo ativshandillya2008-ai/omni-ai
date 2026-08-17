@@ -93,10 +93,66 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
         if parsed_url.path == "/api/video":
             params = urllib.parse.parse_qs(parsed_url.query)
             query = params.get("q", [""])[0]
-            log_debug(f"Received video query: {query}")
+            luma_key = params.get("luma_key", [""])[0]
+            log_debug(f"Received video query: {query}, Luma key provided: {bool(luma_key)}")
             
             video_url = ""
-            if query:
+            engine_name = "Tenor Motion Loop"
+            
+            # Step A: If Luma AI key is provided, attempt real Luma Dream Machine generation
+            if luma_key and query:
+                try:
+                    log_debug(f"Attempting Luma Dream Machine generation for: {query}")
+                    luma_url = "https://api.lumalabs.ai/dream-machine/v1/generations"
+                    luma_payload = json.dumps({
+                        "prompt": query,
+                        "aspect_ratio": "16:9",
+                        "loop": True
+                    }).encode("utf-8")
+                    
+                    luma_req = urllib.request.Request(
+                        luma_url,
+                        data=luma_payload,
+                        headers={
+                            "Authorization": f"Bearer {luma_key}",
+                            "Content-Type": "application/json",
+                            "Accept": "application/json",
+                            "User-Agent": "OmniAI/1.0"
+                        }
+                    )
+                    with urllib.request.urlopen(luma_req, timeout=10) as luma_res:
+                        gen_data = json.loads(luma_res.read().decode("utf-8"))
+                        gen_id = gen_data.get("id")
+                        log_debug(f"Luma generation created, ID: {gen_id}")
+                        
+                        # Poll for completion (up to 45 seconds)
+                        if gen_id:
+                            poll_url = f"https://api.lumalabs.ai/dream-machine/v1/generations/{gen_id}"
+                            for _ in range(15):
+                                time.sleep(3)
+                                poll_req = urllib.request.Request(
+                                    poll_url,
+                                    headers={
+                                        "Authorization": f"Bearer {luma_key}",
+                                        "Accept": "application/json"
+                                    }
+                                )
+                                with urllib.request.urlopen(poll_req, timeout=8) as poll_res:
+                                    poll_data = json.loads(poll_res.read().decode("utf-8"))
+                                    state = poll_data.get("state")
+                                    log_debug(f"Luma poll state: {state}")
+                                    if state == "completed":
+                                        video_url = poll_data.get("assets", {}).get("video", "")
+                                        engine_name = "Luma Dream Machine"
+                                        break
+                                    elif state == "failed":
+                                        log_debug(f"Luma generation failed: {poll_data.get('failure_reason')}")
+                                        break
+                except Exception as e:
+                    log_debug(f"Luma generation error: {e}. Falling back to Tenor loop engine.")
+            
+            # Step B: Fallback to Tenor search if no video URL from Luma
+            if not video_url and query:
                 try:
                     search_url = f"https://tenor.com/search/{urllib.parse.quote(query)}-gifs"
                     log_debug(f"Fetching Tenor search URL: {search_url}")
@@ -109,7 +165,6 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                         mp4s = re.findall(r'https://media\.tenor\.com/[a-zA-Z0-9\-_]+/[^"\']+\.mp4', html)
                         if mp4s:
                             unique_mp4s = list(dict.fromkeys(mp4s))
-                            # Prioritize fight/combat matching files in results if fighting keywords present
                             matched = unique_mp4s[0]
                             lower_query = query.lower()
                             if "fight" in lower_query or "combat" in lower_query or "vs" in lower_query or "punch" in lower_query:
@@ -126,7 +181,7 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            self.wfile.write(json.dumps({"videoUrl": video_url}).encode("utf-8"))
+            self.wfile.write(json.dumps({"videoUrl": video_url, "engine": engine_name}).encode("utf-8"))
 
         elif parsed_url.path == "/api/search":
             params = urllib.parse.parse_qs(parsed_url.query)
