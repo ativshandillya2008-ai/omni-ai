@@ -1353,8 +1353,17 @@ const appState = {
         try {
             if (selectedModel === 'gpt-4o' && !mediaCard && !isImageGenRequest) {
                 if (openaiKey) {
-                    this.logTerminal("Contacting OpenAI API cloud nodes...", "system-line");
-                    aiReplyText = await this.fetchOpenAIChat(openaiKey, selectedModel, finalPrompt);
+                    try {
+                        this.logTerminal("Contacting OpenAI API cloud nodes...", "system-line");
+                        aiReplyText = await this.fetchOpenAIChat(openaiKey, selectedModel, finalPrompt);
+                    } catch (openAiErr) {
+                        if (geminiKey) {
+                            this.logTerminal(`OpenAI returned: ${openAiErr.message}. Failing over to Gemini cluster (GPT-4o mode)...`, "warning-line");
+                            aiReplyText = await this.fetchGeminiChat(geminiKey, `Respond with the personality, tone, and system prompt style of OpenAI's GPT-4o. Query: ${finalPrompt}`);
+                        } else {
+                            throw openAiErr;
+                        }
+                    }
                 } else if (geminiKey) {
                     this.logTerminal("OpenAI API key missing. Routing request to Gemini API cluster under GPT-4o personality...", "warning-line");
                     aiReplyText = await this.fetchGeminiChat(geminiKey, `Respond with the personality, tone, and system prompt style of OpenAI's GPT-4o. Query: ${finalPrompt}`);
@@ -1370,8 +1379,17 @@ const appState = {
                 }
             } else if (selectedModel === 'claude-3-5-sonnet' && !mediaCard && !isImageGenRequest) {
                 if (anthropicKey) {
-                    this.logTerminal("Contacting Anthropic Claude API cloud nodes...", "system-line");
-                    aiReplyText = await this.fetchAnthropicChat(anthropicKey, selectedModel, finalPrompt);
+                    try {
+                        this.logTerminal("Contacting Anthropic Claude API cloud nodes...", "system-line");
+                        aiReplyText = await this.fetchAnthropicChat(anthropicKey, selectedModel, finalPrompt);
+                    } catch (claudeErr) {
+                        if (geminiKey) {
+                            this.logTerminal(`Claude API returned: ${claudeErr.message}. Failing over to Gemini cluster (Claude mode)...`, "warning-line");
+                            aiReplyText = await this.fetchGeminiChat(geminiKey, `Respond with the personality, tone, and system prompt style of Anthropic's Claude 3.5 Sonnet. Query: ${finalPrompt}`);
+                        } else {
+                            throw claudeErr;
+                        }
+                    }
                 } else if (geminiKey) {
                     this.logTerminal("Anthropic API key missing. Routing request to Gemini API cluster under Claude 3.5 Sonnet personality...", "warning-line");
                     aiReplyText = await this.fetchGeminiChat(geminiKey, `Respond with the personality, tone, and system prompt style of Anthropic's Claude 3.5 Sonnet. Query: ${finalPrompt}`);
@@ -1380,8 +1398,17 @@ const appState = {
                 }
             } else if (selectedModel === 'deepseek-v3' && !mediaCard && !isImageGenRequest) {
                 if (openaiKey) {
-                    this.logTerminal("Contacting DeepSeek API cloud nodes...", "system-line");
-                    aiReplyText = await this.fetchOpenAIChat(openaiKey, 'deepseek-chat', finalPrompt);
+                    try {
+                        this.logTerminal("Contacting DeepSeek API cloud nodes...", "system-line");
+                        aiReplyText = await this.fetchOpenAIChat(openaiKey, 'deepseek-chat', finalPrompt);
+                    } catch (dsErr) {
+                        if (geminiKey) {
+                            this.logTerminal(`DeepSeek API returned: ${dsErr.message}. Failing over to Gemini cluster (DeepSeek mode)...`, "warning-line");
+                            aiReplyText = await this.fetchGeminiChat(geminiKey, `Respond with the personality, tone, and system prompt style of DeepSeek-V3. Query: ${finalPrompt}`);
+                        } else {
+                            throw dsErr;
+                        }
+                    }
                 } else if (geminiKey) {
                     this.logTerminal("DeepSeek API key missing. Routing request to Gemini API cluster under DeepSeek-V3 personality...", "warning-line");
                     aiReplyText = await this.fetchGeminiChat(geminiKey, `Respond with the personality, tone, and system prompt style of DeepSeek-V3. Query: ${finalPrompt}`);
@@ -1390,8 +1417,17 @@ const appState = {
                 }
             } else if (selectedModel === 'groq-llama-3-3' && !mediaCard && !isImageGenRequest) {
                 if (groqKey) {
-                    this.logTerminal("Contacting Groq LPU API cloud nodes (llama-3.3-70b-versatile)...", "system-line");
-                    aiReplyText = await this.fetchGroqChat(groqKey, 'llama-3.3-70b-versatile', finalPrompt);
+                    try {
+                        this.logTerminal("Contacting Groq LPU API cloud nodes (llama-3.3-70b-versatile)...", "system-line");
+                        aiReplyText = await this.fetchGroqChat(groqKey, 'llama-3.3-70b-versatile', finalPrompt);
+                    } catch (groqErr) {
+                        if (geminiKey) {
+                            this.logTerminal(`Groq API returned: ${groqErr.message}. Failing over to Gemini cluster under Llama 3.3 personality...`, "warning-line");
+                            aiReplyText = await this.fetchGeminiChat(geminiKey, `Respond with the personality, tone, and system prompt style of Meta's Llama 3.3. Query: ${finalPrompt}`);
+                        } else {
+                            throw groqErr;
+                        }
+                    }
                 } else if (geminiKey) {
                     this.logTerminal("Groq API key missing. Routing request to Gemini API cluster under Llama 3.3 personality...", "warning-line");
                     aiReplyText = await this.fetchGeminiChat(geminiKey, `Respond with the personality, tone, and system prompt style of Meta's Llama 3.3. Query: ${finalPrompt}`);
