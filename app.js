@@ -1337,7 +1337,7 @@ const appState = {
         this.updateAgentPlan(4);
         this.logTerminal(`Executing LLM pipeline request for: ${modelName}`, "info-line");
         try {
-            if (selectedModel === 'gpt-4o' && !mediaCard) {
+            if (selectedModel === 'gpt-4o' && !mediaCard && !isImageGenRequest) {
                 if (openaiKey) {
                     this.logTerminal("Contacting OpenAI API cloud nodes...", "system-line");
                     aiReplyText = await this.fetchOpenAIChat(openaiKey, selectedModel, finalPrompt);
@@ -1347,14 +1347,14 @@ const appState = {
                 } else {
                     throw new Error("OpenAI API key missing. Please enter your API key.");
                 }
-            } else if (selectedModel === 'gemini-1-5-ultra' && !mediaCard) {
+            } else if (selectedModel === 'gemini-1-5-ultra' && !mediaCard && !isImageGenRequest) {
                 if (geminiKey) {
                     this.logTerminal("Contacting Google Gemini API cloud nodes with real-time DuckDuckGo grounding...", "system-line");
                     aiReplyText = await this.fetchGeminiChat(geminiKey, finalPrompt);
                 } else {
                     throw new Error("Gemini API key missing. Please enter your API key.");
                 }
-            } else if (selectedModel === 'claude-3-5-sonnet' && !mediaCard) {
+            } else if (selectedModel === 'claude-3-5-sonnet' && !mediaCard && !isImageGenRequest) {
                 if (anthropicKey) {
                     this.logTerminal("Contacting Anthropic Claude API cloud nodes...", "system-line");
                     aiReplyText = await this.fetchAnthropicChat(anthropicKey, selectedModel, finalPrompt);
@@ -1364,7 +1364,7 @@ const appState = {
                 } else {
                     throw new Error("Anthropic API key missing. Please enter your API key.");
                 }
-            } else if (selectedModel === 'deepseek-v3' && !mediaCard) {
+            } else if (selectedModel === 'deepseek-v3' && !mediaCard && !isImageGenRequest) {
                 if (openaiKey) {
                     this.logTerminal("Contacting DeepSeek API cloud nodes...", "system-line");
                     aiReplyText = await this.fetchOpenAIChat(openaiKey, 'deepseek-chat', finalPrompt);
@@ -1374,7 +1374,7 @@ const appState = {
                 } else {
                     throw new Error("DeepSeek API key missing. Please enter your API key.");
                 }
-            } else if (selectedModel === 'groq-llama-3-3' && !mediaCard) {
+            } else if (selectedModel === 'groq-llama-3-3' && !mediaCard && !isImageGenRequest) {
                 if (groqKey) {
                     this.logTerminal("Contacting Groq LPU API cloud nodes (llama-3.3-70b-versatile)...", "system-line");
                     aiReplyText = await this.fetchGroqChat(groqKey, 'llama-3.3-70b-versatile', finalPrompt);
@@ -1384,7 +1384,7 @@ const appState = {
                 } else {
                     throw new Error("Groq API key missing. Please enter your API key.");
                 }
-            } else if (selectedModel === 'llama-3-3' && !mediaCard) {
+            } else if (selectedModel === 'llama-3-3' && !mediaCard && !isImageGenRequest) {
                 try {
                     this.logTerminal("Contacting local Ollama service host node...", "system-line");
                     aiReplyText = await this.fetchOllamaChat('llama3.3', finalPrompt);
