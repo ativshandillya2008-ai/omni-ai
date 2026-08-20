@@ -998,13 +998,17 @@ const appState = {
             setTimeout(() => this.initializeInlineWidgets(uniqueId, msg.mediaCard), 50);
         }
 
-        // Clean paragraph conversion for markdown text
-        const formattedText = msg.text
-            .replace(/\n\n/g, '</p><p>')
-            .replace(/\n/g, '<br>')
+        // Clean markdown formatting
+        let formattedText = msg.text || '';
+        formattedText = formattedText.replace(/```([a-zA-Z]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+            return `<pre><code class="language-${lang}">${code.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code></pre>`;
+        });
+        formattedText = formattedText
             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
             .replace(/\*(.*?)\*/g, '<em>$1</em>')
-            .replace(/`(.*?)`/g, '<code>$1</code>');
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/\n\n/g, '</p><p>')
+            .replace(/\n/g, '<br>');
 
         row.innerHTML = `
             <div class="message-bubble-layout">
@@ -1020,6 +1024,24 @@ const appState = {
         `;
 
         container.appendChild(row);
+
+        // Render LaTeX Mathematical Formulas using KaTeX
+        if (typeof renderMathInElement === 'function') {
+            try {
+                renderMathInElement(row, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '\\[', right: '\\]', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\(', right: '\\)', display: false}
+                    ],
+                    throwOnError: false
+                });
+            } catch(katexErr) {
+                console.warn("[KaTeX] Render warning:", katexErr);
+            }
+        }
+
         container.scrollTop = container.scrollHeight;
     },
 
@@ -1431,8 +1453,8 @@ const appState = {
             const resp = MockDataEngine.getLLMResponse(userText, modelName, this.sources);
             aiReplyText = resp.text;
             
-            // Add a long research/political science brief if prompt asks for essays or detailed reports
-            if (userText.length > 20 || userTextLower.includes('essay') || userTextLower.includes('report') || userTextLower.includes('explain') || userTextLower.includes('tell me about') || userTextLower.includes('research')) {
+            // Only attach in-depth formal academic breakdown if explicitly requested
+            if (userTextLower.includes('academic essay') || userTextLower.includes('scientific paper breakdown') || userTextLower.includes('formal research paper')) {
                 aiReplyText = this.generateDeepAcademicBreakdown(userText) + "\n\n" + aiReplyText;
             }
         }
@@ -2442,44 +2464,20 @@ const appState = {
         }
     },
 
-    // Generates massive text reports on fly to exceed 1000 words easily
+    // Generates formal structured breakdown for in-depth academic queries
     generateDeepAcademicBreakdown(topic) {
-        return `## Universal Knowledge Synthesis: Dynamic Analysis Brief
-**Field Category Mapping**: Automated Semantic Parser (System Core v3)
-**Domain Scope**: Science, Mathematics, Political Systems, Philosophy, and Software Architectures.
+        return `## Comprehensive Research & Synthesis Brief: "${topic}"
 
----
+### 1. Abstract & Theoretical Foundations
+An academic analysis of **${topic}** requires examining core principles, systematic frameworks, and applied methodologies. In modern research, inquiries relating to this domain are evaluated across multi-disciplinary standards to ensure conceptual rigor.
 
-### Section 1 — Foundational Overview & History
-The subject of "${topic}" constitutes an intersection of various academic fields. Historically, structured queries relating to this domain require translating underlying definitions across both natural and mathematical syntax. To represent this comprehensively, we map the concepts using cognitive systems derived from connectionist learning paradigms.
+### 2. Core Pillars & Structural Dynamics
+- **Framework Analysis**: Structuring fundamental rules, constraints, and standard operating procedures.
+- **Key Methodologies**: Evaluating best practices, data modeling, and practical implementations.
+- **Analytical Metrics**: Measuring outcomes through qualitative and quantitative benchmarks.
 
-When mapping data in this specific subject area, we observe three fundamental constraints:
-1. **Computational Complexity**: Real-time evaluation limits the size of vector projections.
-2. **Context Retention**: Standard NLP interfaces require active token management to prevent context window exhaustion.
-3. **Representational Fidelity**: Multi-modal models must balance text output density with structural preview compilation.
-
----
-
-### Section 2 — Technical Specifications & Mathematical Analysis
-Let us analyze the mathematical coordinates governing this paradigm. If we define the vector space of the system as \\(S\\), where every topic \\(t \\in S\\) is represented by high-dimensional coordinates, we can model the retrieval index \\(I\\) as:
-\\[I(t) = \\sum_{i=1}^{n} w_i \\cdot \\cos(\\theta_i)\\]
-where \\(w_i\\) represents the token weight metrics and \\(\\theta_i\\) represents the angular distance between the semantic nodes in vector space.
-
-In specialized fields (such as Quantum Mechanics or Advanced Chemistry):
-- **Molecular links**: Modeled using Bohr covalent configurations.
-- **Quantum superposition**: Solved using the Schrödinger coordinate equation:
-\\[i\\hbar\\frac{\\partial}{\\partial t}|\\Psi(\\mathbf{r},t)\\rangle = \\hat{H}|\\Psi(\\mathbf{r},t)\\rangle\\]
-This requires calculating probability vectors for wave function collapses, which our local GPU cluster handles automatically.
-
----
-
-### Section 3 — Structural Code Compilation & Syntax Analysis
-To construct active sandbox simulators representing this field, our compiler generates optimized client-side Javascript. For example:
-- It initializes standard responsive 2D layouts.
-- It binds drag-to-pan translation vectors on canvas elements.
-- It mounts reactive loops using standard requestAnimationFrame bindings.
-
-We have attached full script and code files corresponding to this domain in the preview below. You can view the live sandbox compile results and inspect raw source code directly using the selector tabs. Let me know if you would like me to rewrite, optimize, or build additional diagnostic screens!`;
+### 3. Practical Applications & Summary
+By aligning theoretical foundations with modular execution, solutions in this area achieve high reliability and scalability. Let me know if you would like me to expand any specific section or provide detailed code models!`;
     },
 
     async fetchOpenAIChat(key, model, prompt) {

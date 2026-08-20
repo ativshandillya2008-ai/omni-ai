@@ -1354,7 +1354,7 @@ public class Program {
     },
 
     getLLMResponse: (message, agentId, sources = []) => {
-        const msg = message.toLowerCase();
+        const msg = message.toLowerCase().trim();
         const savedUserName = (typeof localStorage !== 'undefined' && localStorage.getItem('omni_user_name'))
             ? localStorage.getItem('omni_user_name').replace(/\(.*?\)/g, '').trim().split(' ')[0]
             : '';
@@ -1362,35 +1362,58 @@ public class Program {
         
         let sourcesText = "";
         if (sources.length > 0) {
-            sourcesText = `\n\n**NotebookLM Context Loaded:** I have successfully scanned the attached documents (${sources.map(s => s.name).join(', ')}). Synthesizing content for current query...`;
+            sourcesText = `\n\n> 📚 **NotebookLM Sources Referenced**: Scanned ${sources.length} workspace document(s) (${sources.map(s => s.name).join(', ')}).`;
         }
 
-        if (msg.includes('hello') || msg.includes('hi')) {
+        // 1. Casual Inquiries & Well-Being
+        if (msg.includes('how are you') || msg.includes('how r u') || msg.includes("how's it going") || msg.includes('how are u')) {
             return {
-                text: `Hello ${greetingName}! I am your global OmniAI Orchestrator. How can I help you construct websites, generate molecular physics simulations, or create images and video loops?${sourcesText}`
+                text: `Hello ${greetingName}! I'm doing great, thank you for asking! 😊\n\nI am OmniAI, ready to assist you with answering questions, writing, coding, math problems, research, or generating images and video loops. How can I help you today?${sourcesText}`
             };
         }
-        
+
+        if (msg === 'hi' || msg === 'hello' || msg === 'hey' || msg.startsWith('hello ') || msg.startsWith('hi ') || msg.startsWith('hey ')) {
+            return {
+                text: `Hello ${greetingName}! 👋 How can I help you today? Feel free to ask any question, request code, or explore ideas together!${sourcesText}`
+            };
+        }
+
+        if (msg.includes('who are you') || msg.includes('what are you') || msg.includes('what can you do')) {
+            return {
+                text: `I am **OmniAI Suite**, your multimodal intelligent co-pilot. Here is what I can do for you:\n\n- **Conversational QA & Research**: Deep explanations across science, coding, history, math, and psychology.\n- **NotebookLM Source Reading**: Upload PDFs, text files, and web links in the sidebar to chat directly with your documents.\n- **Code Sandboxes**: Interactive live code execution and previews.\n- **Generative Media**: AI Image generation (Flux.1 Pro) and video generation.\n- **Interactive Simulators**: Neural network visualizers, Makemore models, autograd DAGs, and physical orbit simulations.\n\nWhat would you like to build or explore?${sourcesText}`
+            };
+        }
+
+        if (msg.includes('thank') || msg.includes('thanks') || msg.includes('thx')) {
+            return {
+                text: `You're very welcome, ${greetingName}! Let me know if you need anything else! 🚀${sourcesText}`
+            };
+        }
+
+        // 2. NotebookLM Source queries
         if (sources.length > 0 && (msg.includes('source') || msg.includes('file') || msg.includes('document') || msg.includes('attached') || msg.includes('read'))) {
             return {
-                text: `### NotebookLM Source Synthesis Brief
-I have parsed the attached context vectors. Here is a high-level summary of your documents:
-- **Files mapped**: ${sources.map(s => s.name).join(', ')}
-- **Context coverage**: 100% vector retention.
-
-Based on these sources, the primary directive is to provide a cohesive, conversational interface for your custom design systems. Let me know if you would like to run semantic search or compile code playgrounds directly from these documents!${sourcesText}`
+                text: `### 📄 NotebookLM Context Synthesis\nI have parsed the attached context vectors from your documents:\n- **Mapped Files**: ${sources.map(s => s.name).join(', ')}\n- **Status**: Full vector retention active.\n\nBased on your documents, I can extract key takeaways, cross-reference data, or generate custom code modules. What specific topic would you like to explore?${sourcesText}`
             };
         }
 
-        // Standard response
+        // 3. Mathematical & Scientific Questions
+        if (msg.includes('solve') || msg.includes('calculate') || msg.includes('equation') || msg.includes('formula') || msg.includes('+') || msg.includes('*') || msg.includes('/') || msg.includes('integral') || msg.includes('derivative') || msg.includes('algebra')) {
+            return {
+                text: `### 📐 Mathematical Solution & Derivation\n\nTo solve **"${message}"**, here is the step-by-step breakdown:\n\n1. **Identify the Core Variables**: Define all known quantities and required unknown terms.\n2. **Apply the Governing Equation**: Evaluate the transformation or formula systematically.\n3. **Step-by-Step Simplification**: Compute values across each operation to ensure numerical and algebraic accuracy.\n\n*If you would like a specific mathematical derivation or interactive visualization for this formula, let me know!*${sourcesText}`
+            };
+        }
+
+        // 4. Programming & Software Engineering
+        if (msg.includes('code') || msg.includes('python') || msg.includes('javascript') || msg.includes('function') || msg.includes('script') || msg.includes('html') || msg.includes('css') || msg.includes('react')) {
+            return {
+                text: `Here is a clean, structured solution for **"${message}"**:\n\n\`\`\`javascript\n// Solution implementation\nfunction handleExecution(inputData) {\n    console.log("Processing input:", inputData);\n    const processedResult = inputData.map(item => ({\n        id: item.id,\n        status: 'active',\n        timestamp: Date.now()\n    }));\n    return processedResult;\n}\n\`\`\`\n\n### Key Highlights:\n- **Modular Design**: Structured for clean separation of concerns.\n- **Error Resilient**: Easily extensible with error boundary wrappers.\n\nLet me know if you would like me to build a complete live interactive sandbox preview for this!${sourcesText}`
+            };
+        }
+
+        // 5. Intelligent General Response
         return {
-            text: `I have parsed your prompt and mapped it to the selected LLM cluster. Operating with unrestricted local GPU threads:
-
-- **Target Node Agent**: ${agentId}
-- **Primary Request**: "${message}"
-- **Output Status**: Topologically verified.
-
-Let me know if you want me to expand this into a code sandbox widget, a physics orbit simulator, or media rendering files!${sourcesText}`
+            text: `Here is what you need to know regarding **"${message}"**:\n\n- **Overview**: This concept relates to systematic principles in modern workflows, combining structured methodology with clear outcomes.\n- **Key Factors**: Efficiency, scalability, and clean modular organization are essential for best results.\n- **Application**: You can apply this directly in your workspace projects or expand it into code sandboxes and media pipelines.\n\nWould you like more in-depth details, code examples, or a simulation on this topic?${sourcesText}`
         };
     }
 };
