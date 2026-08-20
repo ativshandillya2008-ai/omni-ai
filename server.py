@@ -8,6 +8,8 @@ import os
 import traceback
 import time
 import threading
+import secrets
+from http.cookies import SimpleCookie
 from collections import defaultdict
 
 PORT = 8088
@@ -30,6 +32,66 @@ def is_rate_limited(ip, max_requests=RATE_LIMIT_MAX_REQUESTS, window=RATE_LIMIT_
         valid_timestamps.append(now)
         RATE_LIMIT_STORE[ip] = valid_timestamps
         return False
+
+# ─── Server-Side Session Store ────────────────────────────────────────────────
+SESSION_LOCK = threading.Lock()
+SESSIONS = {}  # session_token -> {"email": email, "role": role, "created_at": float}
+ADMIN_EMAIL = "ativsandillya2008@gmail.com"
+
+def create_session(email, role=None):
+    clean_email = email.strip().lower()
+    if not role:
+        role = "admin" if clean_email == ADMIN_EMAIL.lower() else "user"
+    token = secrets.token_hex(32)
+    with SESSION_LOCK:
+        SESSIONS[token] = {
+            "email": clean_email,
+            "role": role,
+            "created_at": time.time()
+        }
+    return token, role
+
+def get_session_from_cookie(cookie_header):
+    if not cookie_header:
+        return None, None
+    try:
+        cookie = SimpleCookie()
+        cookie.load(cookie_header)
+        if "session_token" in cookie:
+            token = cookie["session_token"].value
+            with SESSION_LOCK:
+                sess = SESSIONS.get(token)
+                if sess:
+                    return token, sess
+    except Exception as e:
+        log_debug(f"Cookie parsing error: {e}")
+    return None, None
+
+def delete_session(cookie_header):
+    token, _ = get_session_from_cookie(cookie_header)
+    if token:
+        with SESSION_LOCK:
+            SESSIONS.pop(token, None)
+            return True
+    return False
+
+def require_auth(handler):
+    """
+    Helper check that endpoints can use to reject requests without a valid session.
+    Returns the session dict if authenticated; otherwise sends 401 and returns None.
+    """
+    cookie_header = handler.headers.get("Cookie", "")
+    _, session = get_session_from_cookie(cookie_header)
+    if not session:
+        handler.send_response(401)
+        handler.send_header("Content-Type", "application/json")
+        handler.end_headers()
+        handler.wfile.write(json.dumps({
+            "authenticated": False,
+            "error": "Unauthorized: Valid session required"
+        }).encode("utf-8"))
+        return None
+    return session
 
 # ─── Safe Capped Stream Reader ────────────────────────────────────────────────
 MAX_DOWNLOAD_BYTES = 10 * 1024 * 1024  # 10 MB maximum
@@ -77,8 +139,8 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed_url = urllib.parse.urlparse(self.path)
 
-        # Apply rate limiting to all API endpoints
-        if parsed_url.path in ("/api/video", "/api/search", "/api/drive-proxy", "/api/rates"):
+        # Apply rate limiting to all API & Auth endpoints
+        if parsed_url.path in ("/api/video", "/api/search", "/api/drive-proxy", "/api/rates", "/auth/me", "/auth/logout"):
             client_ip = self.client_address[0]
             if is_rate_limited(client_ip):
                 self.send_response(429)
@@ -89,6 +151,42 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                     "error": "Too Many Requests: Rate limit of 60 req/min exceeded. Please slow down."
                 }).encode("utf-8"))
                 return
+
+        if parsed_url.path == "/auth/me":
+            cookie_header = self.headers.get("Cookie", "")
+            _, session = get_session_from_cookie(cookie_header)
+            if session:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "authenticated": True,
+                    "email": session["email"],
+                    "role": session["role"],
+                    "created_at": session["created_at"]
+                }).encode("utf-8"))
+            else:
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "authenticated": False,
+                    "error": "No active session found"
+                }).encode("utf-8"))
+            return
+
+        if parsed_url.path == "/auth/logout":
+            cookie_header = self.headers.get("Cookie", "")
+            delete_session(cookie_header)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Set-Cookie", "session_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "logged_out",
+                "authenticated": False
+            }).encode("utf-8"))
+            return
 
         if parsed_url.path == "/api/rates":
             rates_data = {}
@@ -399,6 +497,90 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
             }).encode("utf-8"))
         else:
             super().do_GET()
+
+    def do_POST(self):
+        parsed_url = urllib.parse.urlparse(self.path)
+
+        # Apply rate limiting to all POST endpoints
+        if parsed_url.path.startswith("/auth/") or parsed_url.path.startswith("/api/"):
+            client_ip = self.client_address[0]
+            if is_rate_limited(client_ip):
+                self.send_response(429)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Retry-After", "60")
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "error": "Too Many Requests: Rate limit of 60 req/min exceeded. Please slow down."
+                }).encode("utf-8"))
+                return
+
+        # TEMPORARY - remove in Stage 2
+        # /auth/dev-login: Development session creation endpoint for local testing
+        if parsed_url.path == "/auth/dev-login":
+            try:
+                content_length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else ""
+                
+                email = ""
+                try:
+                    payload = json.loads(body)
+                    email = payload.get("email", "").strip()
+                except Exception:
+                    params = urllib.parse.parse_qs(body)
+                    email = params.get("email", [""])[0].strip()
+
+                if not email:
+                    self.send_response(400)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({
+                        "error": "Email is required in request body (e.g. {\"email\": \"user@example.com\"})"
+                    }).encode("utf-8"))
+                    return
+
+                token, role = create_session(email)
+                log_debug(f"Dev login created session for {email} (role: {role})")
+
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                # Set secure HttpOnly session cookie
+                self.send_header("Set-Cookie", f"session_token={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400")
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "status": "ok",
+                    "authenticated": True,
+                    "email": email,
+                    "role": role
+                }).encode("utf-8"))
+                return
+            except Exception as e:
+                log_debug(f"Dev login error: {e}\n{traceback.format_exc()}")
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "error": f"Internal server error: {str(e)}"
+                }).encode("utf-8"))
+                return
+
+        elif parsed_url.path == "/auth/logout":
+            cookie_header = self.headers.get("Cookie", "")
+            delete_session(cookie_header)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Set-Cookie", "session_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "status": "logged_out",
+                "authenticated": False
+            }).encode("utf-8"))
+            return
+
+        else:
+            self.send_response(404)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "Endpoint not found"}).encode("utf-8"))
 
 if __name__ == "__main__":
     os.chdir(DIRECTORY)
