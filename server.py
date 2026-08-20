@@ -78,13 +78,52 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
         parsed_url = urllib.parse.urlparse(self.path)
 
         # Apply rate limiting to all API endpoints
-        if parsed_url.path in ("/api/video", "/api/search", "/api/drive-proxy"):
+        if parsed_url.path in ("/api/video", "/api/search", "/api/drive-proxy", "/api/rates"):
             client_ip = self.client_address[0]
             if is_rate_limited(client_ip):
                 self.send_response(429)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Retry-After", "60")
                 self.end_headers()
+                self.wfile.write(json.dumps({
+                    "error": "Too Many Requests: Rate limit of 60 req/min exceeded. Please slow down."
+                }).encode("utf-8"))
+                return
+
+        if parsed_url.path == "/api/rates":
+            rates_data = {}
+            try:
+                # Fetch European Central Bank reference exchange rates via Frankfurter API (no key needed)
+                rates_req = urllib.request.Request(
+                    "https://api.frankfurter.app/latest?from=USD",
+                    headers={"User-Agent": "OmniAI/1.0"}
+                )
+                with urllib.request.urlopen(rates_req, timeout=5) as rates_res:
+                    rates_data = json.loads(rates_res.read().decode("utf-8"))
+            except Exception as e:
+                log_debug(f"Rates fetch failed: {e}")
+                # Reliable fallback reference rates if offline
+                rates_data = {
+                    "base": "USD",
+                    "date": time.strftime("%Y-%m-%d"),
+                    "rates": {
+                        "INR": 86.85,
+                        "EUR": 0.92,
+                        "GBP": 0.79,
+                        "JPY": 154.20,
+                        "CAD": 1.38,
+                        "AUD": 1.52,
+                        "CNY": 7.24
+                    },
+                    "fallback": True
+                }
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(rates_data).encode("utf-8"))
+            return
+
         if parsed_url.path == "/api/keys":
             keys_file = os.path.join(DIRECTORY, "keys.json")
             data = {}

@@ -5,13 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OmniAI - ChatGPT Conversational Suite</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="style.css?v=20260820d">
+    <link rel="stylesheet" href="style.css?v=20260820h">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <!-- KaTeX for Beautiful LaTeX Math Formula Rendering -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+    <!-- Chart.js for Interactive Data Visualization & Sales Charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Pyodide: In-Browser WebAssembly Python Runtime for Sandboxed Code Interpreter -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
 </head>
 <body>
     <!-- Access Control Screen -->
@@ -262,8 +265,10 @@
                     <span class="vram-cluster-tag" style="font-size:10px; color:var(--text-muted);">&bull; Unlimited VRAM cluster</span>
                 </div>
                 <div class="header-actions">
-                    <button id="btn-toggle-speech" class="btn-clear-chat-header" style="margin-right: 8px;" title="Toggle Speech Output">Mute Speech</button>
-                    <button id="btn-toggle-agent" class="btn-clear-chat-header" style="margin-right: 8px;" title="Toggle Agent Panel">Agent Console</button>
+                    <button id="btn-open-canvas" class="btn-drawer-tab-header" title="Open Side-by-Side Canvas Editor">✏️ Canvas</button>
+                    <button id="btn-open-data-studio" class="btn-drawer-tab-header" title="Open Data Studio & Chart Interpreter">📊 Data Studio</button>
+                    <button id="btn-toggle-agent" class="btn-drawer-tab-header" title="Toggle Agent Console">⚡ Console</button>
+                    <button id="btn-toggle-speech" class="btn-clear-chat-header" title="Toggle Speech Output">Mute Speech</button>
                     <button id="btn-clear-chat" title="Clear Conversation" class="btn-clear-chat-header">Clear</button>
                 </div>
             </div>
@@ -276,49 +281,25 @@
                     <div class="welcome-logo">
                         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7L12 12L22 7zM2 17L12 22L22 17M2 12L12 17L22 12"/></svg>
                     </div>
-                    <h1>What would you like to generate today?</h1>
-                    <p>Conversational pipeline with in-line image, video, coding, and multi-field research capabilities.</p>
+                    <h1>What would you like to build or explore?</h1>
+                    <p>Conversational co-pilot with Side-by-Side Canvas, in-browser Python Code Interpreter, live rates, and PDF analysis.</p>
                     
                     <div class="suggestions-grid">
-                        <div class="suggestion-card" data-prompt="Build a fully working brick breaker game in HTML/CSS/JS with canvas">
-                            <strong>Coding Sandbox</strong>
-                            <span>Build an interactive retro brick breaker game</span>
+                        <div class="suggestion-card" data-prompt="Analyze 6-month sales revenue CSV and plot monthly trend line chart">
+                            <strong>📊 Sales CSV Chart</strong>
+                            <span>Analyze 6-month sales trend with in-browser Python & Chart.js</span>
                         </div>
-                        <div class="suggestion-card" data-prompt="Plot a quantum qubit vector on a Bloch sphere coordinate system">
-                            <strong>Quantum Computing</strong>
-                            <span>Simulate qubit vector angles theta and phi</span>
+                        <div class="suggestion-card" data-prompt="Write a 2-page research report on Quantum Computing and open in Canvas editor">
+                            <strong>✏️ Canvas Document</strong>
+                            <span>Generate full report with paragraph-level side-by-side editing</span>
                         </div>
-                        <div class="suggestion-card" data-prompt="Visualize caffeine atomic molecular bonds on a structural grid">
-                            <strong>Chemistry Bonds</strong>
-                            <span>Render molecular structures and linkage elements</span>
+                        <div class="suggestion-card" data-prompt="What is the current USD to INR exchange rate today?">
+                            <strong>💡 Real-Time Rates</strong>
+                            <span>Live European Central Bank exchange rates & currency conversion</span>
                         </div>
-                        <div class="suggestion-card" data-prompt="Simulate micrograd scalar autograd and backprop chain rule DAG graph">
-                            <strong>Micrograd Autograd</strong>
-                            <span>Simulate scalar backpropagation & DAG gradients</span>
-                        </div>
-                        <div class="suggestion-card" data-prompt="Simulate makemore bigram language model and softmax sampling">
-                            <strong>Makemore Language Model</strong>
-                            <span>Simulate bigram probabilities, softmax & NLL loss</span>
-                        </div>
-                        <div class="suggestion-card" data-prompt="Simulate gpt transformer multi-head self-attention QKV matrices">
-                            <strong>GPT Self-Attention</strong>
-                            <span>Simulate QKV attention heatmaps & causal masking</span>
-                        </div>
-                        <div class="suggestion-card" data-prompt="Compare LLM model benchmark scores MMLU HumanEval MATH and GPQA">
-                            <strong>LLM Benchmarks</strong>
-                            <span>Objective benchmark scores & platform comparison</span>
-                        </div>
-                        <div class="suggestion-card" data-prompt="Run self-evolution prompt optimization and telemetry benchmark">
-                            <strong>AI Evolution Hub</strong>
-                            <span>Auto-tune prompts, routing & benchmark latency</span>
-                        </div>
-                        <div class="suggestion-card" data-prompt="Perform deep research fact checking across Google Arxiv Wikipedia GitHub with citations">
-                            <strong>Deep Research Engine</strong>
-                            <span>Cross-reference sources with fact citations</span>
-                        </div>
-                        <div class="suggestion-card" data-prompt="View active plugins weather finance chess python sandbox">
-                            <strong>Plugin Ecosystem</strong>
-                            <span>Sandboxed Weather, Stockfish, & Finance APIs</span>
+                        <div class="suggestion-card" data-prompt="Upload a research PDF and generate a 5-bullet summary">
+                            <strong>📑 PDF 5-Bullet Summary</strong>
+                            <span>Upload PDF research paper & extract structured 5-bullet insights</span>
                         </div>
                     </div>
                 </div>
@@ -329,10 +310,11 @@
             <!-- Floating ChatGPT Input Row -->
             <div class="chat-input-container">
                 <div class="chat-input-bar">
-                    <button id="btn-attach-files" class="chat-bar-btn" title="Upload Sources">
+                    <button id="btn-attach-files" class="chat-bar-btn" title="Upload Sources / CSV / PDF">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     </button>
-                    <textarea id="chat-user-input" rows="1" placeholder="Ask OmniAI anything (science, coding, math, psychology, etc.) or generate images/videos..."></textarea>
+                    <input type="file" id="chat-file-input" multiple accept=".pdf,.csv,.txt,.docx,.json,.md" style="display: none;">
+                    <textarea id="chat-user-input" rows="1" placeholder="Ask OmniAI anything, analyze CSV data, summarize PDFs, or generate in Canvas..."></textarea>
                     <div class="input-actions-right">
                         <button id="btn-chat-mic" class="chat-bar-btn" title="Voice Input">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
@@ -342,7 +324,7 @@
                         </button>
                     </div>
                 </div>
-                <div class="input-disclaimer">OmniAI Unlimited access enabled. Files and URLs in sidebar automatically build context.</div>
+                <div class="input-disclaimer">OmniAI Unlimited access enabled. Files and URLs automatically build context. Side-by-side Canvas & Pyodide active.</div>
             </div>
 
             <!-- Audio Recording Modal / Overlay -->
@@ -362,49 +344,176 @@
 
          </main>
          
-         <!-- Right side Agent Execution Drawer -->
+         <!-- Right side Multimodal Studio Drawer (Canvas, Data Studio, Agent Console) -->
          <aside class="agent-panel glass-panel collapsed" id="agent-panel">
              <div class="agent-panel-header">
-                 <div class="agent-status-badge">
-                     <span class="agent-pulse"></span>
-                     <span>AGENT ENGINE ACTIVE</span>
+                 <div class="drawer-tabs-nav">
+                     <button class="drawer-nav-btn active" id="tab-btn-canvas" onclick="window.switchDrawerTab('canvas')">✏️ Canvas</button>
+                     <button class="drawer-nav-btn" id="tab-btn-data" onclick="window.switchDrawerTab('data')">📊 Data Studio</button>
+                     <button class="drawer-nav-btn" id="tab-btn-console" onclick="window.switchDrawerTab('console')">⚡ Console</button>
                  </div>
-                 <button id="btn-close-agent-panel" title="Close Panel" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center;">✕</button>
+                 <button id="btn-close-agent-panel" title="Close Panel" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; padding:4px;">✕</button>
              </div>
+             
              <div class="agent-panel-content">
-                 <div class="agent-section">
-                     <div class="agent-section-title">Current Agent Plan</div>
-                     <div class="agent-plan-list" id="agent-plan-list">
-                         <div class="plan-step active" id="plan-step-1">
-                             <span class="step-num">1</span>
-                             <span class="step-text">Awaiting User Instruction...</span>
+                 
+                 <!-- TAB 1: Canvas (Side-by-Side Document & Code Editor) -->
+                 <div class="drawer-tab-content active" id="drawer-tab-canvas">
+                     <div class="canvas-header-bar">
+                         <input type="text" id="canvas-doc-title" class="canvas-title-input" value="Untitled Document - OmniAI Canvas" placeholder="Document Title...">
+                         <div class="canvas-stats-row">
+                             <span id="canvas-word-count">0 words</span>
+                             <span>&bull;</span>
+                             <span id="canvas-read-time">0 min read</span>
                          </div>
-                         <div class="plan-step" id="plan-step-2">
-                             <span class="step-num">2</span>
-                             <span class="step-text">Planning execution path...</span>
+                     </div>
+                     
+                     <!-- Formatting & AI Toolbar -->
+                     <div class="canvas-toolbar">
+                         <div class="toolbar-group">
+                             <button class="tool-btn" onclick="window.formatCanvas('bold')" title="Bold"><strong>B</strong></button>
+                             <button class="tool-btn" onclick="window.formatCanvas('italic')" title="Italic"><em>I</em></button>
+                             <button class="tool-btn" onclick="window.formatCanvas('h2')" title="Heading"><strong>H2</strong></button>
+                             <button class="tool-btn" onclick="window.formatCanvas('ul')" title="Bullet List">&bull; List</button>
                          </div>
-                         <div class="plan-step" id="plan-step-3">
-                             <span class="step-num">3</span>
-                             <span class="step-text">Grounding with search/docs...</span>
+                         <div class="toolbar-group">
+                             <button class="tool-btn-ai" onclick="window.triggerCanvasAiAction('rewrite')" title="Rewrite Selected Section">✨ AI Rewrite</button>
+                             <button class="tool-btn-ai" onclick="window.triggerCanvasAiAction('shorten')" title="Make Selected Section Concise">✂️ Shorten</button>
+                             <button class="tool-btn-ai" onclick="window.triggerCanvasAiAction('expand')" title="Expand with details">🔍 Expand</button>
+                             <button class="tool-btn-ai" onclick="window.triggerCanvasAiAction('tone')" title="Change Tone">🎭 Tone</button>
                          </div>
-                         <div class="plan-step" id="plan-step-4">
-                             <span class="step-num">4</span>
-                             <span class="step-text">Executing LLM pipeline...</span>
+                         <div class="toolbar-group">
+                             <button class="tool-btn" onclick="window.exportCanvas('copy')" title="Copy to Clipboard">📋 Copy</button>
+                             <button class="tool-btn" onclick="window.exportCanvas('markdown')" title="Download Markdown">📥 .md</button>
+                             <button class="tool-btn" onclick="window.exportCanvas('html')" title="Download HTML">🌐 .html</button>
+                         </div>
+                     </div>
+
+                     <!-- Main Editable Document Container -->
+                     <div class="canvas-editor-wrap">
+                         <div id="canvas-editable-area" class="canvas-editable-document" contenteditable="true" spellcheck="false">
+                             <h2>Welcome to OmniAI Canvas</h2>
+                             <p>This is your side-by-side editing canvas. You can edit any paragraph, select text to apply AI rewrites without regenerating the whole report, or write notes collaboratively.</p>
+                             <p>Try clicking any paragraph and clicking <strong>✨ AI Rewrite</strong> or <strong>✂️ Shorten</strong> on the toolbar above!</p>
                          </div>
                      </div>
                  </div>
-                 <div class="agent-section" style="flex: 1; display: flex; flex-direction: column;">
-                     <div class="agent-section-title">Live Terminal Console</div>
-                     <div class="agent-terminal" id="terminal-rows">
-                         <div class="terminal-line system-line">[SYSTEM] Agent System Node initialized. Ready to execute goals.</div>
+
+                 <!-- TAB 2: Data Studio & Pyodide Code Interpreter -->
+                 <div class="drawer-tab-content" id="drawer-tab-data" style="display: none;">
+                     <div class="data-studio-header">
+                         <div class="pyodide-status-pill" id="pyodide-status-badge">
+                             <span class="pyodide-dot"></span>
+                             <span id="pyodide-status-text">🐍 In-Browser Python (Pyodide Ready)</span>
+                         </div>
+                         <div style="display:flex; gap:8px;">
+                             <button class="btn-sm-primary" onclick="window.loadDemoSalesCSV()">📊 Load 6-Month Sales Demo</button>
+                             <button class="btn-sm-secondary" onclick="document.getElementById('chat-file-input').click()">📁 Upload CSV</button>
+                         </div>
+                     </div>
+
+                     <!-- Key Performance Summary Metrics -->
+                     <div class="metrics-cards-grid" id="data-metrics-grid">
+                         <div class="metric-card">
+                             <span class="metric-label">Total Revenue</span>
+                             <strong class="metric-val" id="metric-total-rev">$284,500</strong>
+                         </div>
+                         <div class="metric-card">
+                             <span class="metric-label">Monthly Average</span>
+                             <strong class="metric-val" id="metric-avg-rev">$47,416</strong>
+                         </div>
+                         <div class="metric-card">
+                             <span class="metric-label">6-Mo Growth Rate</span>
+                             <strong class="metric-val text-green" id="metric-growth-rate">+42.8% ↗</strong>
+                         </div>
+                         <div class="metric-card">
+                             <span class="metric-label">Peak Performance</span>
+                             <strong class="metric-val text-purple" id="metric-peak-month">June ($62.5k)</strong>
+                         </div>
+                     </div>
+
+                     <!-- Interactive Chart.js Canvas -->
+                     <div class="chart-canvas-wrapper">
+                         <div class="chart-canvas-header">
+                             <span style="font-weight:600; font-size:12px; color:var(--text-secondary);">Monthly Sales & Revenue Trend</span>
+                             <select id="chart-type-selector" class="chart-select" onchange="window.updateSalesChartType(this.value)">
+                                 <option value="line" selected>📈 Line Trend</option>
+                                 <option value="bar">📊 Bar Chart</option>
+                             </select>
+                         </div>
+                         <div style="position: relative; height: 220px; width: 100%;">
+                             <canvas id="sales-trend-chart"></canvas>
+                         </div>
+                     </div>
+
+                     <!-- In-Browser Python Code Playground -->
+                     <div class="python-sandbox-wrap" style="margin-top: 14px;">
+                         <div class="sandbox-title-bar">
+                             <span>Python Code Interpreter (Sandboxed WebAssembly)</span>
+                             <button class="btn-run-python" onclick="window.executePyodidePlayground()">▶️ Run Code</button>
+                         </div>
+                         <textarea id="python-code-input" class="python-code-editor" spellcheck="false"># In-browser Python Data Analysis with Pyodide
+import json
+
+sales_data = [
+    {"month": "Jan", "sales": 32000, "units": 410},
+    {"month": "Feb", "sales": 38500, "units": 490},
+    {"month": "Mar", "sales": 44000, "units": 560},
+    {"month": "Apr", "sales": 49200, "units": 630},
+    {"month": "May", "sales": 58300, "units": 710},
+    {"month": "Jun", "sales": 62500, "units": 790}
+]
+
+total = sum(d["sales"] for d in sales_data)
+avg = total / len(sales_data)
+growth = ((sales_data[-1]["sales"] - sales_data[0]["sales"]) / sales_data[0]["sales"]) * 100
+
+print(f"Total 6-Month Sales: ${total:,.2f}")
+print(f"Monthly Average: ${avg:,.2f}")
+print(f"Growth Rate: +{growth:.1f}%")
+print("Peak Month:", max(sales_data, key=lambda x: x["sales"])["month"])
+</textarea>
+                         <pre id="python-output-console" class="python-console-output">Python runtime ready. Click 'Run Code' to execute in-browser.</pre>
                      </div>
                  </div>
+
+                 <!-- TAB 3: Agent Console & Multi-Agent Plan -->
+                 <div class="drawer-tab-content" id="drawer-tab-console" style="display: none;">
+                     <div class="agent-section">
+                         <div class="agent-section-title">Current Agent Plan</div>
+                         <div class="agent-plan-list" id="agent-plan-list">
+                             <div class="plan-step active" id="plan-step-1">
+                                 <span class="step-num">1</span>
+                                 <span class="step-text">Awaiting User Instruction...</span>
+                             </div>
+                             <div class="plan-step" id="plan-step-2">
+                                 <span class="step-num">2</span>
+                                 <span class="step-text">Planning execution path...</span>
+                             </div>
+                             <div class="plan-step" id="plan-step-3">
+                                 <span class="step-num">3</span>
+                                 <span class="step-text">Grounding with search/docs/rates...</span>
+                             </div>
+                             <div class="plan-step" id="plan-step-4">
+                                 <span class="step-num">4</span>
+                                 <span class="step-text">Executing LLM & sandbox pipeline...</span>
+                             </div>
+                         </div>
+                     </div>
+                     <div class="agent-section" style="flex: 1; display: flex; flex-direction: column;">
+                         <div class="agent-section-title">Live Terminal Console</div>
+                         <div class="agent-terminal" id="terminal-rows">
+                             <div class="terminal-line system-line">[SYSTEM] Agent System Node initialized. Ready to execute goals.</div>
+                         </div>
+                     </div>
+                 </div>
+
              </div>
          </aside>
      </div>
 
-    <script src="mockData.js?v=20260820g"></script>
-    <script src="app.js?v=20260820g"></script>
-    <script src="updater.js?v=20260820g"></script>
+    <script src="mockData.js?v=20260820h"></script>
+    <script src="app.js?v=20260820h"></script>
+    <script src="updater.js?v=20260820h"></script>
 </body>
 </html>
