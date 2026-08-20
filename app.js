@@ -227,22 +227,54 @@ const appState = {
             }, 350);
         };
 
-        // Check if user is already logged in from previous session
-        let savedName = localStorage.getItem('omni_user_name');
-        const savedRole = localStorage.getItem('omni_user_role');
-        const savedIsAdmin = localStorage.getItem('omni_is_owner') === 'true';
+        // Check URL query parameters for Google OAuth callback status or errors
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('auth_error')) {
+            const err = urlParams.get('auth_error');
+            setTimeout(() => alert(`Google Sign-In Error: ${err}`), 300);
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+        if (urlParams.has('auth_success')) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
 
-        if (savedName) {
-            // Auto-migrate old misspelled name if stored in browser localStorage
-            if (savedName.includes('Sandillya')) {
-                savedName = savedName.replace('Sandillya', 'Shandillya');
-                localStorage.setItem('omni_user_name', savedName);
+        // Check real server-side session from /auth/me on startup
+        const verifyServerSession = async () => {
+            try {
+                const res = await fetch('/auth/me');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.authenticated && data.email) {
+                        const isAdmin = data.role === 'admin';
+                        let displayName = data.email.split('@')[0].replace(/[._-]/g, ' ');
+                        displayName = displayName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                        if (isAdmin) {
+                            displayName = "Ativ Shandillya (Owner)";
+                        }
+                        applyUserState(displayName, isAdmin ? "Admin Mode" : "User Mode", isAdmin, data.email);
+                        this.logTerminal(`[AUTH] Real Google Session active: ${data.email} (${data.role})`, "success-line");
+                        return true;
+                    }
+                }
+            } catch (err) {
+                console.log("[AUTH] Session check error:", err);
             }
-        }
+            return false;
+        };
 
-        if (savedName && savedRole) {
-            applyUserState(savedName, savedRole, savedIsAdmin, localStorage.getItem('omni_user_email') || '');
-        }
+        // Initialize session check
+        verifyServerSession().then(hasSession => {
+            if (!hasSession) {
+                // Check if user was previously in guest mode
+                let savedName = localStorage.getItem('omni_user_name');
+                const savedRole = localStorage.getItem('omni_user_role');
+                const savedIsAdmin = localStorage.getItem('omni_is_owner') === 'true';
+
+                if (savedName && savedRole && savedRole.includes('Guest')) {
+                    applyUserState(savedName, savedRole, savedIsAdmin, localStorage.getItem('omni_user_email') || '');
+                }
+            }
+        });
 
         // Toggle Admin Passkey Section
         if (toggleAdminBtn && adminFields) {
@@ -251,62 +283,9 @@ const appState = {
             });
         }
 
-        // Google Admin Passkey input elements
-        const googleAdminPasskeyGroup = document.getElementById('google-admin-passkey-group');
-        const googleAdminPasskeyInput = document.getElementById('google-admin-passkey-input');
-
         // Attach global window handlers for direct click execution
-        window.openGoogleModal = () => {
-            if (googleModal) googleModal.classList.remove('hidden');
-            if (googleEmailInput) {
-                googleEmailInput.value = '';
-                googleEmailInput.focus();
-            }
-            if (googleAdminPasskeyGroup) googleAdminPasskeyGroup.style.display = 'none';
-            if (googleAdminPasskeyInput) googleAdminPasskeyInput.value = '';
-        };
-
-        window.closeGoogleModal = () => {
-            if (googleModal) googleModal.classList.add('hidden');
-            if (googleAdminPasskeyGroup) googleAdminPasskeyGroup.style.display = 'none';
-            if (googleAdminPasskeyInput) googleAdminPasskeyInput.value = '';
-        };
-
-        window.loginAsGoogleUser = () => {
-            const email = (googleEmailInput ? googleEmailInput.value : '').trim().toLowerCase();
-            if (!email || !email.includes('@')) {
-                alert("Please enter a valid Google email address.");
-                return;
-            }
-
-            // If the user enters the admin email, require owner passkey verification
-            if (email === ADMIN_EMAIL.toLowerCase()) {
-                if (googleAdminPasskeyGroup && googleAdminPasskeyGroup.style.display === 'none') {
-                    googleAdminPasskeyGroup.style.display = 'block';
-                    if (googleAdminPasskeyInput) {
-                        googleAdminPasskeyInput.focus();
-                    }
-                    return;
-                }
-
-                const passkey = googleAdminPasskeyInput ? googleAdminPasskeyInput.value.trim() : '';
-                if (passkey !== 'admin') {
-                    alert("Invalid Owner Security Passkey for this Admin account.");
-                    return;
-                }
-
-                if (googleModal) googleModal.classList.add('hidden');
-                applyUserState("Ativ Shandillya (Admin)", "Admin Mode", true, email);
-                this.logTerminal("[AUTH] Google Sign-In: Owner Admin Account verified (ativsandillya2008@gmail.com). Full Admin Privileges active.", "success-line");
-                return;
-            }
-
-            // All other Google accounts enter under Normal User Mode (Admin panels hidden)
-            if (googleModal) googleModal.classList.add('hidden');
-            const emailUsername = email.split('@')[0].replace(/[._-]/g, ' ');
-            const formattedName = emailUsername.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-            applyUserState(`${formattedName}`, "User Mode", false, email);
-            this.logTerminal(`[AUTH] Google Sign-In: User ${email} verified. Logged in under Normal Mode.`, "info-line");
+        window.loginAsGoogle = () => {
+            window.location.href = '/auth/google/login';
         };
 
         window.loginAsGuest = () => {
@@ -315,18 +294,8 @@ const appState = {
         };
 
         // Event listener bindings
-        if (googleLoginBtn) googleLoginBtn.addEventListener('click', window.openGoogleModal);
-        if (cancelGoogleBtn) cancelGoogleBtn.addEventListener('click', window.closeGoogleModal);
-        if (submitGoogleBtn) submitGoogleBtn.addEventListener('click', window.loginAsGoogleUser);
-        if (googleEmailInput) {
-            googleEmailInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') window.loginAsGoogleUser();
-            });
-        }
-        if (googleAdminPasskeyInput) {
-            googleAdminPasskeyInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') window.loginAsGoogleUser();
-            });
+        if (googleLoginBtn) {
+            googleLoginBtn.onclick = () => { window.location.href = '/auth/google/login'; };
         }
         if (guestUnlockBtn) guestUnlockBtn.addEventListener('click', window.loginAsGuest);
 
@@ -353,27 +322,18 @@ const appState = {
 
         // Sign Out / Switch Account Button
         if (logoutAccountBtn) {
-            logoutAccountBtn.addEventListener('click', () => {
+            logoutAccountBtn.addEventListener('click', async () => {
+                try {
+                    await fetch('/auth/logout', { method: 'POST' });
+                } catch (e) {
+                    console.log("Logout error:", e);
+                }
                 localStorage.removeItem('omni_user_name');
                 localStorage.removeItem('omni_user_role');
                 localStorage.removeItem('omni_is_owner');
                 localStorage.removeItem('omni_user_email');
                 localStorage.removeItem('omni_owner_key');
-
-                appWorkspace.classList.add('hidden');
-                loginScreen.classList.remove('hidden');
-                loginScreen.style.opacity = '1';
-
-                if (passInput) passInput.value = '';
-                if (googleEmailInput) googleEmailInput.value = '';
-                if (googleAdminPasskeyInput) googleAdminPasskeyInput.value = '';
-                if (googleAdminPasskeyGroup) googleAdminPasskeyGroup.style.display = 'none';
-
-                const credentialsSection = document.getElementById('credentials-title') ? document.getElementById('credentials-title').closest('.sidebar-section') : null;
-                if (credentialsSection) credentialsSection.style.display = 'none';
-                const evolutionSection = document.getElementById('auto-evolution-section');
-                if (evolutionSection) evolutionSection.style.display = 'none';
-                this.logTerminal("[AUTH] User signed out successfully. Session state cleared.", "info-line");
+                window.location.href = '/';
             });
         }
     },

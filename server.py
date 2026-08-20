@@ -9,6 +9,7 @@ import traceback
 import time
 import threading
 import secrets
+import base64
 from http.cookies import SimpleCookie
 from collections import defaultdict
 
@@ -66,6 +67,36 @@ def get_admin_emails():
             except Exception:
                 pass
     return [e.strip().lower() for e in raw.split(",") if e.strip()]
+
+def get_google_oauth_config():
+    client_id = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+    client_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
+    if not client_id or not client_secret:
+        # Fallback to keys.json
+        keys_file = os.path.join(DIRECTORY, "keys.json")
+        if os.path.exists(keys_file):
+            try:
+                with open(keys_file, "r", encoding="utf-8") as f:
+                    k_data = json.load(f)
+                    if not client_id:
+                        client_id = k_data.get("google_client_id", "").strip()
+                    if not client_secret:
+                        client_secret = k_data.get("google_client_secret", "").strip()
+            except Exception:
+                pass
+    return client_id, client_secret
+
+def parse_jwt_payload_unverified(jwt_token):
+    try:
+        parts = jwt_token.split(".")
+        if len(parts) >= 2:
+            payload_b64 = parts[1]
+            padded = payload_b64 + "=" * (-len(payload_b64) % 4)
+            decoded_bytes = base64.urlsafe_b64decode(padded)
+            return json.loads(decoded_bytes.decode("utf-8"))
+    except Exception as e:
+        log_debug(f"JWT decode error: {e}")
+    return {}
 
 # ─── Server-Side Session Store ────────────────────────────────────────────────
 SESSION_LOCK = threading.Lock()
@@ -174,7 +205,7 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
         parsed_url = urllib.parse.urlparse(self.path)
 
         # Apply rate limiting to all API & Auth endpoints
-        if parsed_url.path in ("/api/video", "/api/search", "/api/drive-proxy", "/api/rates", "/auth/me", "/auth/logout"):
+        if parsed_url.path.startswith("/auth/") or parsed_url.path in ("/api/video", "/api/search", "/api/drive-proxy", "/api/rates"):
             client_ip = self.client_address[0]
             if is_rate_limited(client_ip):
                 self.send_response(429)
@@ -184,6 +215,175 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.write(json.dumps({
                     "error": "Too Many Requests: Rate limit of 60 req/min exceeded. Please slow down."
                 }).encode("utf-8"))
+                return
+
+        if parsed_url.path == "/auth/google/login":
+            client_id, client_secret = get_google_oauth_config()
+            if not client_id or not client_secret:
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.end_headers()
+                html_resp = """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Google OAuth Setup Required</title>
+                    <style>
+                        body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; }
+                        .card { background: #1e293b; border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 28px; max-width: 540px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+                        h2 { margin-top: 0; color: #38bdf8; }
+                        code { background: #090d16; padding: 3px 6px; border-radius: 4px; color: #f43f5e; font-size: 13px; }
+                        pre { background: #090d16; padding: 12px; border-radius: 8px; color: #a5f3fc; overflow-x: auto; font-size: 12.5px; }
+                        a { color: #38bdf8; text-decoration: none; }
+                        .btn { display: inline-block; background: #38bdf8; color: #0f172a; padding: 10px 18px; border-radius: 8px; font-weight: 700; margin-top: 14px; text-decoration: none; }
+                    </style>
+                </head>
+                <body>
+                    <div class="card">
+                        <h2>⚠️ Google OAuth Credentials Required</h2>
+                        <p>To enable real Google Sign-In, please add your Google OAuth credentials to your <code>.env</code> file:</p>
+                        <pre>GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com\nGOOGLE_CLIENT_SECRET=your-client-secret\nADMIN_EMAILS=ativsandillya2008@gmail.com</pre>
+                        <p>Make sure this Authorized Redirect URI is added in Google Cloud Console:</p>
+                        <pre>http://127.0.0.1:8088/auth/google/callback</pre>
+                        <a href="/" class="btn">← Back to Workspace</a>
+                    </div>
+                </body>
+                </html>
+                """
+                self.wfile.write(html_resp.encode("utf-8"))
+                return
+
+            state = secrets.token_hex(16)
+            host = self.headers.get("Host", f"127.0.0.1:{PORT}")
+            redirect_uri = f"http://{host}/auth/google/callback"
+
+            oauth_params = {
+                "client_id": client_id,
+                "redirect_uri": redirect_uri,
+                "response_type": "code",
+                "scope": "openid email profile",
+                "state": state,
+                "access_type": "online",
+                "prompt": "select_account"
+            }
+            google_auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urllib.parse.urlencode(oauth_params)}"
+
+            self.send_response(302)
+            self.send_header("Location", google_auth_url)
+            self.send_header("Set-Cookie", f"oauth_state={state}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600")
+            self.end_headers()
+            return
+
+        if parsed_url.path == "/auth/google/callback":
+            params = urllib.parse.parse_qs(parsed_url.query)
+            code = params.get("code", [""])[0].strip()
+            state = params.get("state", [""])[0].strip()
+            error = params.get("error", [""])[0].strip()
+
+            if error:
+                log_debug(f"Google OAuth returned error: {error}")
+                self.send_response(302)
+                self.send_header("Location", f"/?auth_error={urllib.parse.quote(error)}")
+                self.end_headers()
+                return
+
+            # CSRF State Validation
+            cookie_header = self.headers.get("Cookie", "")
+            cookie = SimpleCookie()
+            if cookie_header:
+                try:
+                    cookie.load(cookie_header)
+                except Exception:
+                    pass
+            stored_state = cookie["oauth_state"].value if "oauth_state" in cookie else ""
+
+            if not state or not stored_state or state != stored_state:
+                log_debug(f"OAuth state mismatch: received={state}, stored={stored_state}")
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "CSRF State validation failed. Please try logging in again."}).encode("utf-8"))
+                return
+
+            client_id, client_secret = get_google_oauth_config()
+            host = self.headers.get("Host", f"127.0.0.1:{PORT}")
+            redirect_uri = f"http://{host}/auth/google/callback"
+
+            try:
+                # Exchange authorization code for tokens
+                token_url = "https://oauth2.googleapis.com/token"
+                token_data = urllib.parse.urlencode({
+                    "code": code,
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "redirect_uri": redirect_uri,
+                    "grant_type": "authorization_code"
+                }).encode("utf-8")
+
+                token_req = urllib.request.Request(
+                    token_url,
+                    data=token_data,
+                    headers={
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "User-Agent": "OmniAI/1.0"
+                    }
+                )
+                with urllib.request.urlopen(token_req, timeout=10) as token_res:
+                    token_json = json.loads(token_res.read().decode("utf-8"))
+
+                access_token = token_json.get("access_token", "")
+                id_token = token_json.get("id_token", "")
+
+                # Fetch verified user info from Google's UserInfo API
+                userinfo_url = "https://openidconnect.googleapis.com/v1/userinfo"
+                userinfo_req = urllib.request.Request(
+                    userinfo_url,
+                    headers={
+                        "Authorization": f"Bearer {access_token}",
+                        "User-Agent": "OmniAI/1.0"
+                    }
+                )
+                with urllib.request.urlopen(userinfo_req, timeout=8) as uinfo_res:
+                    user_info = json.loads(uinfo_res.read().decode("utf-8"))
+
+                email = user_info.get("email", "").strip()
+                name = user_info.get("name", "").strip()
+
+                # Validate claims if id_token present
+                if id_token:
+                    claims = parse_jwt_payload_unverified(id_token)
+                    iss = claims.get("iss", "")
+                    aud = claims.get("aud", "")
+                    exp = claims.get("exp", 0)
+                    if iss not in ("accounts.google.com", "https://accounts.google.com"):
+                        log_debug(f"Warning: Unexpected JWT issuer: {iss}")
+                    if aud and client_id and aud != client_id:
+                        log_debug(f"Warning: JWT audience mismatch: {aud} vs {client_id}")
+                    if exp and exp < time.time():
+                        log_debug("Warning: JWT expired")
+
+                if not email:
+                    raise ValueError("No verified email returned from Google OAuth")
+
+                log_debug(f"Google OAuth verified email: {email} (name: {name})")
+
+                # Create server-side session
+                session_token, role = create_session(email)
+
+                # Set session cookie and redirect back to app
+                self.send_response(302)
+                self.send_header("Location", "/?auth_success=1")
+                self.send_header("Set-Cookie", f"session_token={session_token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400")
+                # Clear oauth_state cookie
+                self.send_header("Set-Cookie", "oauth_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
+                self.end_headers()
+                return
+
+            except Exception as e:
+                log_debug(f"Google OAuth token exchange failed: {e}\n{traceback.format_exc()}")
+                self.send_response(302)
+                self.send_header("Location", f"/?auth_error={urllib.parse.quote(str(e))}")
+                self.end_headers()
                 return
 
         if parsed_url.path == "/auth/me":
@@ -548,56 +748,7 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                 }).encode("utf-8"))
                 return
 
-        # TEMPORARY - remove in Stage 2
-        # /auth/dev-login: Development session creation endpoint for local testing
-        if parsed_url.path == "/auth/dev-login":
-            try:
-                content_length = int(self.headers.get("Content-Length", 0))
-                body = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else ""
-                
-                email = ""
-                try:
-                    payload = json.loads(body)
-                    email = payload.get("email", "").strip()
-                except Exception:
-                    params = urllib.parse.parse_qs(body)
-                    email = params.get("email", [""])[0].strip()
-
-                if not email:
-                    self.send_response(400)
-                    self.send_header("Content-Type", "application/json")
-                    self.end_headers()
-                    self.wfile.write(json.dumps({
-                        "error": "Email is required in request body (e.g. {\"email\": \"user@example.com\"})"
-                    }).encode("utf-8"))
-                    return
-
-                token, role = create_session(email)
-                log_debug(f"Dev login created session for {email} (role: {role})")
-
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                # Set secure HttpOnly session cookie
-                self.send_header("Set-Cookie", f"session_token={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400")
-                self.end_headers()
-                self.wfile.write(json.dumps({
-                    "status": "ok",
-                    "authenticated": True,
-                    "email": email,
-                    "role": role
-                }).encode("utf-8"))
-                return
-            except Exception as e:
-                log_debug(f"Dev login error: {e}\n{traceback.format_exc()}")
-                self.send_response(500)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({
-                    "error": f"Internal server error: {str(e)}"
-                }).encode("utf-8"))
-                return
-
-        elif parsed_url.path == "/auth/logout":
+        if parsed_url.path == "/auth/logout":
             cookie_header = self.headers.get("Cookie", "")
             delete_session(cookie_header)
             self.send_response(200)
