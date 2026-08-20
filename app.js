@@ -2741,7 +2741,7 @@ function saveKey(input) {
     }
 }
 
-function loadSavedKeys() {
+async function loadSavedKeys() {
     const keyIds = ['key-openai', 'key-gemini', 'key-anthropic', 'key-groq', 'key-luma'];
     keyIds.forEach(id => {
         const saved = localStorage.getItem('omni_key_' + id);
@@ -2750,6 +2750,31 @@ function loadSavedKeys() {
             if (el) el.value = saved;
         }
     });
+
+    // Automatically sync locally configured server keys from /api/keys
+    try {
+        const res = await fetch('/api/keys');
+        if (res.ok) {
+            const data = await res.json();
+            if (data.openai) {
+                localStorage.setItem('omni_key_key-openai', data.openai);
+                const el = document.getElementById('key-openai');
+                if (el) el.value = data.openai;
+            }
+            if (data.gemini) {
+                localStorage.setItem('omni_key_key-gemini', data.gemini);
+                const el = document.getElementById('key-gemini');
+                if (el) el.value = data.gemini;
+            }
+            if (data.luma) {
+                localStorage.setItem('omni_key_key-luma', data.luma);
+                const el = document.getElementById('key-luma');
+                if (el) el.value = data.luma;
+            }
+        }
+    } catch (err) {
+        // Silently continue if server is not reachable
+    }
 }
 
 // Start Conversational Application

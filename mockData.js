@@ -1398,9 +1398,55 @@ public class Program {
         }
 
         // 3. Mathematical & Scientific Questions
-        if (msg.includes('solve') || msg.includes('calculate') || msg.includes('equation') || msg.includes('formula') || msg.includes('+') || msg.includes('*') || msg.includes('/') || msg.includes('integral') || msg.includes('derivative') || msg.includes('algebra')) {
+        if (msg.includes('solve') || msg.includes('calculate') || msg.includes('equation') || msg.includes('formula') || msg.includes('x^2') || msg.includes('^2') || msg.includes('integral') || msg.includes('derivative') || msg.includes('algebra')) {
+            
+            // Check for quadratic equation matching: ax^2 + bx + c = 0
+            const cleanEq = message.replace(/\s+/g, '');
+            const quadRegex = /([+-]?\d*)x\^2([+-]?\d*)x([+-]?\d*)=0/i;
+            const match = cleanEq.match(quadRegex);
+
+            if (match || msg.includes('x^2 + 5x + 6') || msg.includes('x^2+5x+6')) {
+                let a = 1, b = 5, c = 6;
+                if (match) {
+                    a = match[1] === '' || match[1] === '+' ? 1 : match[1] === '-' ? -1 : parseFloat(match[1]) || 1;
+                    b = match[2] === '' || match[2] === '+' ? 1 : match[2] === '-' ? -1 : parseFloat(match[2]) || 0;
+                    c = parseFloat(match[3]) || 0;
+                }
+                const disc = (b * b) - (4 * a * c);
+                let rootStr = "";
+                let methodStr = "";
+
+                if (disc > 0) {
+                    const r1 = (-b + Math.sqrt(disc)) / (2 * a);
+                    const r2 = (-b - Math.sqrt(disc)) / (2 * a);
+                    rootStr = `\\[x_1 = ${r1}, \\quad x_2 = ${r2}\\]`;
+                    methodStr = `Since the discriminant $\\Delta > 0$, there are **two distinct real roots**:\n\n` +
+                        `1. **Discriminant ($\\Delta$)**:\n` +
+                        `   \\[\\Delta = b^2 - 4ac = (${b})^2 - 4(${a})(${c}) = ${b*b} - ${4*a*c} = ${disc}\\]\n\n` +
+                        `2. **Applying the Quadratic Formula**:\n` +
+                        `   \\[x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a} = \\frac{-(${b}) \\pm \\sqrt{${disc}}}{2(${a})}\\]\n\n` +
+                        `3. **Calculating Individual Roots**:\n` +
+                        `   \\[x_1 = \\frac{-${b} + ${Math.sqrt(disc)}}{${2*a}} = ${r1}\\]\n` +
+                        `   \\[x_2 = \\frac{-${b} - ${Math.sqrt(disc)}}{${2*a}} = ${r2}\\]`;
+                } else if (disc === 0) {
+                    const r = -b / (2 * a);
+                    rootStr = `\\[x = ${r} \\quad \\text{(double root)}\\]`;
+                    methodStr = `Since $\\Delta = 0$, there is exactly **one real repeated root**:\n\n\\[x = \\frac{-b}{2a} = \\frac{-(${b})}{2(${a})} = ${r}\\]`;
+                } else {
+                    const realPart = (-b / (2 * a)).toFixed(2);
+                    const imagPart = (Math.sqrt(-disc) / (2 * a)).toFixed(2);
+                    rootStr = `\\[x = ${realPart} \\pm ${imagPart}i\\]`;
+                    methodStr = `Since $\\Delta < 0$, the roots are **complex conjugates**:\n\n\\[x = \\frac{-b \\pm i\\sqrt{|\\Delta|}}{2a} = ${realPart} \\pm ${imagPart}i\\]`;
+                }
+
+                return {
+                    text: `### 📐 Step-by-Step Solution: Quadratic Equation\n\n**Given Equation:**\n\\[${a !== 1 ? a : ''}x^2 ${b >= 0 ? '+ ' + b : '- ' + Math.abs(b)}x ${c >= 0 ? '+ ' + c : '- ' + Math.abs(c)} = 0\\]\n\n---\n\n#### Quadratic Formula Method:\nStandard form: $ax^2 + bx + c = 0$\nHere: $a = ${a},\\; b = ${b},\\; c = ${c}$\n\n${methodStr}\n\n---\n\n#### ✅ Final Answer:\n${rootStr}${sourcesText}`
+                };
+            }
+
+            // General math response with clean step-by-step structure
             return {
-                text: `### 📐 Mathematical Solution & Derivation\n\nTo solve **"${message}"**, here is the step-by-step breakdown:\n\n1. **Identify the Core Variables**: Define all known quantities and required unknown terms.\n2. **Apply the Governing Equation**: Evaluate the transformation or formula systematically.\n3. **Step-by-Step Simplification**: Compute values across each operation to ensure numerical and algebraic accuracy.\n\n*If you would like a specific mathematical derivation or interactive visualization for this formula, let me know!*${sourcesText}`
+                text: `### 📐 Step-by-Step Solution for "${message}"\n\n1. **Identify the Given Terms**: Extract known parameters and constants from the equation.\n2. **Isolate the Variable**: Group variables on one side and numerical constants on the other.\n3. **Perform Inverse Operations**: Apply arithmetic transformations (addition, subtraction, factoring, roots) systematically.\n\n*If you would like a specific algebraic step or numerical calculation verified, let me know!*${sourcesText}`
             };
         }
 

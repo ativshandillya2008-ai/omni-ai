@@ -85,10 +85,20 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Retry-After", "60")
                 self.end_headers()
-                self.wfile.write(json.dumps({
-                    "error": "Too Many Requests: Rate limit of 60 req/min exceeded. Please slow down."
-                }).encode("utf-8"))
-                return
+        if parsed_url.path == "/api/keys":
+            keys_file = os.path.join(DIRECTORY, "keys.json")
+            data = {}
+            if os.path.exists(keys_file):
+                try:
+                    with open(keys_file, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                except Exception as e:
+                    log_debug(f"Error reading keys.json: {e}")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(data).encode("utf-8"))
+            return
 
         if parsed_url.path == "/api/video":
             params = urllib.parse.parse_qs(parsed_url.query)

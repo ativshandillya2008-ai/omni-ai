@@ -7,6 +7,10 @@ gh.exe
 gh_temp/
 gh.zip
 
+# Local secrets and keys
+keys.json
+.env
+
 # Temporary & log files
 *.log
 *.tmp
