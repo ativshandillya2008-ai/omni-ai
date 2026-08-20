@@ -25,6 +25,9 @@ const AutoUpdater = {
         // Insert Auto-Evolution Hub section before credentials
         const section = document.createElement('section');
         section.className = 'sidebar-section';
+        section.id = 'auto-evolution-section';
+        const isOwner = localStorage.getItem('omni_is_owner') === 'true';
+        section.style.display = isOwner ? 'block' : 'none';
         section.innerHTML = `
             <div class="section-title">Auto-Evolution Hub</div>
             <p class="section-desc">Self-optimizing node engine. Updates modules and patches layouts daily.</p>
@@ -45,8 +48,12 @@ const AutoUpdater = {
             </div>
         `;
 
-        const credentialsSection = document.getElementById('credentials-title').closest('.sidebar-section');
-        sidebarContent.insertBefore(section, credentialsSection);
+        const credentialsSection = document.getElementById('credentials-title') ? document.getElementById('credentials-title').closest('.sidebar-section') : null;
+        if (credentialsSection) {
+            sidebarContent.insertBefore(section, credentialsSection);
+        } else {
+            sidebarContent.appendChild(section);
+        }
 
         // Populate log lines
         const ticker = document.getElementById('updater-log-ticker');
