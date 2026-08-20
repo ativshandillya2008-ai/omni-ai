@@ -1365,7 +1365,56 @@ public class Program {
             sourcesText = `\n\n> 📚 **NotebookLM Sources Referenced**: Scanned ${sources.length} workspace document(s) (${sources.map(s => s.name).join(', ')}).`;
         }
 
-        // 1. Casual Inquiries & Well-Being
+        // 0. Multilingual & Hinglish Language Engine
+        const isHinglish = msg.includes('bhai') || msg.includes('samjha') || msg.includes('shamja') || 
+                           msg.includes('kuch') || msg.includes('kaise') || msg.includes('kya') || 
+                           msg.includes('batao') || msg.includes('batado') || msg.includes('padhao') || 
+                           msg.includes('karo') || msg.includes('hoga') || msg.includes('karna') || 
+                           msg.includes('hai') || msg.includes('namaste') || msg.includes('shukriya') || 
+                           msg.includes('sun') || msg.includes('yaar') || msg.includes('dost') || 
+                           msg.includes('chalo') || msg.includes('mujhe') || msg.includes('mera') || 
+                           msg.includes('meri') || msg.includes('accha') || msg.includes('theek');
+
+        if (isHinglish) {
+            // Hinglish AI explanation
+            if (msg.includes('ai') || msg.includes('artificial intelligence') || msg.includes('machine learning')) {
+                return {
+                    text: `Arre haan bhai, bilkul! Chalo aasan bhasha me samajhte hain ki **AI (Artificial Intelligence)** kya hota hai aur ye kaise kaam karta hai:\n\n---\n\n### 🤖 1. AI Kya Hai?\nAI ka seedha matlab hai **'Computer ka Banaawati Dimaag'**. \nJaise hum insaan dekh kar, sun kar, aur anubhav (experience) se seekhte hain, waise hi AI computer ko data dekh kar seekhne aur apne aap faisle lene ki taakat deta hai.\n\n---\n\n### ⚙️ 2. AI Kaise Kaam Karta Hai?\n- **Machine Learning (ML)**: Computer ko hazaaron/laakhon examples dikhaye jaate hain taaki wo patterns pehchan sake.\n- **Neural Networks**: Insaan ke dimaag ke neurons ki tarah computer ke software me multiple mathematical layers hoti hain jo complex data process karti hain.\n- **Natural Language Processing (NLP)**: Jaise hum abhi Hinglish me baat kar rahe hain, AI hamari bhasha ko samajhta hai aur insaano ki tarah jawab banata hai.\n\n---\n\n### 🚀 3. AI Kahan-Kahan Use Hota Hai?\n1. **Conversational Chatbots (ChatGPT / OmniAI)**: Sawalon ke jawab dena, code likhna, aur baatein karna.\n2. **Image & Video Generation**: Naye creative designs aur videos banana.\n3. **Self-Driving Cars (Tesla)**: Bina driver ke gaadi chalana.\n4. **Recommendation Systems (YouTube / Netflix)**: Aapko pasand aane wale videos aur gaane suggest karna.\n\nBatao bhai, aur kya janna chahte ho AI ke baare me? Code likhwana hai, maths solve karna hai ya kuch aur? 😊${sourcesText}`
+                };
+            }
+
+            if (msg.includes('kaise ho') || msg.includes('kya hal') || msg.includes('kya chal raha')) {
+                return {
+                    text: `Badiya bhai! Ekdam badiya! Aap batao, aap kaise ho? Aaj kis cheez par kaam karein? Coding, maths, ya kuch naya seekhna hai?${sourcesText}`
+                };
+            }
+
+            if (msg.includes('namaste') || msg.includes('pranam')) {
+                return {
+                    text: `Namaste ${greetingName}! 🙏 Kahiye, aaj aapki kis tarah madad kar sakta hoon?${sourcesText}`
+                };
+            }
+
+            return {
+                text: `Haan bhai, bilkul! **"${message}"** ke baare me ye main baatein hain:\n\n- Ye topic kaafi important aur useful hai.\n- Isko aasan tareeqe se samajh kar hum project me use kar sakte hain.\n\nAapko iske baare me aur detail me janna hai, code dekhna hai ya calculation karni hai? Mujhe batao, main help karta hoon! 🚀${sourcesText}`
+            };
+        }
+
+        // Spanish language detection
+        if (msg.includes('hola') || msg.includes('que tal') || msg.includes('como estas') || msg.includes('gracias') || msg.includes('por favor') || msg.includes('amigo')) {
+            return {
+                text: `¡Hola ${greetingName}! Estoy muy bien, gracias por preguntar. ¿En qué te puedo ayudar hoy? Puedo ayudarte con programación, matemáticas, diseño o cualquier otra duda que tengas. 🚀${sourcesText}`
+            };
+        }
+
+        // French language detection
+        if (msg.includes('bonjour') || msg.includes('comment vas-tu') || msg.includes('merci') || msg.includes('s\'il vous plait')) {
+            return {
+                text: `Bonjour ${greetingName} ! Je vais très bien, merci. Comment puis-je vous aider aujourd'hui ? Que ce soit pour du code, des mathématiques ou des explications, je suis à votre disposition ! 🚀${sourcesText}`
+            };
+        }
+
+        // 1. Casual Inquiries & Well-Being (English)
         if (msg.includes('how are you') || msg.includes('how r u') || msg.includes("how's it going") || msg.includes('how are u')) {
             return {
                 text: `Hello ${greetingName}! I'm doing great, thank you for asking! 😊\n\nI am OmniAI, ready to assist you with answering questions, writing, coding, math problems, research, or generating images and video loops. How can I help you today?${sourcesText}`

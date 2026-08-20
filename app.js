@@ -1123,9 +1123,9 @@ const appState = {
                 modelName = 'Sora 2 Engine (Auto-Routed)';
                 this.logTerminal("[AUTO-ROUTER ⚡] Matched Intent: Motion Video Loop Synthesis. Selected Engine: Sora 2 Motion Engine", "success-line");
             } else {
-                selectedModel = 'groq-llama-3-3';
-                modelName = 'Groq LLaMA 3.3 (Auto-Routed)';
-                this.logTerminal("[AUTO-ROUTER ⚡] Matched Intent: General Conversational QA. Selected Engine: Groq LLaMA 3.3 (500+ t/s)", "success-line");
+                selectedModel = 'gemini-1-5-ultra';
+                modelName = 'Gemini 1.5 Ultra (Auto-Routed)';
+                this.logTerminal("[AUTO-ROUTER ⚡] Matched Intent: Universal Multilingual AI. Selected Engine: Gemini 1.5 Ultra", "success-line");
             }
         }
 
@@ -1210,8 +1210,8 @@ const appState = {
                 this.logTerminal(`[ERROR] Custom web search lookup failed: ${searchErr.message}. Fallback active.`, "warning-line");
             }
         }
-        
-        const finalPrompt = searchContext + contextText + userText;
+        const systemDirective = "You are OmniAI, a universal, highly intelligent, friendly, and helpful AI co-pilot. CRITICAL LANGUAGE INSTRUCTION: You MUST ALWAYS detect the exact language, dialect, and tone used by the user (including Hinglish, Hindi, Spanish, French, German, Japanese, Arabic, Bengali, Tamil, Telugu, Russian, etc.) and respond fluently, naturally, and warmly in the EXACT SAME LANGUAGE and style that the user spoke in. If the user speaks in Hinglish (e.g. 'are bhai kuch samjha do'), reply in warm, clear, friendly Hinglish. Always answer the user's questions clearly, accurately, and conversationally.\n\n";
+        const finalPrompt = systemDirective + searchContext + contextText + "USER: " + userText;
 
         // Auto Voice Output check
         const voiceMuted = localStorage.getItem('omni_voice_muted') === 'true';
@@ -2523,24 +2523,20 @@ By aligning theoretical foundations with modular execution, solutions in this ar
 
     async fetchGeminiChat(key, prompt) {
         const models = [
-            'gemini-3.5-flash-lite',
-            'gemini-3.1-flash-lite',
             'gemini-3.5-flash',
-            'gemini-3.7-flash',
-            'gemini-3.1-flash-lite-preview',
-            'gemini-flash-latest'
+            'gemini-3.5-flash-lite',
+            'gemini-flash-latest',
+            'gemini-pro-latest'
         ];
         
         let lastError = null;
         for (const model of models) {
             try {
-                // Step A: Attempt connection WITH Google Search Grounding tools
                 const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }],
-                        tools: [{ googleSearch: {} }]
+                        contents: [{ parts: [{ text: prompt }] }]
                     })
                 });
                 const data = await res.json();
@@ -2553,33 +2549,8 @@ By aligning theoretical foundations with modular execution, solutions in this ar
                     throw new Error("Invalid response format");
                 }
             } catch (err) {
-                console.warn(`Model ${model} with grounding tools failed:`, err);
+                console.warn(`Model ${model} failed:`, err.message);
                 lastError = err;
-                
-                // Step B: Self-healing retry - call the same model WITHOUT search tools
-                try {
-                    this.logTerminal(`[WARNING] Grounding failed for ${model}: ${err.message}. Recovering without search tools...`, "warning-line");
-                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{ parts: [{ text: prompt }] }]
-                        })
-                    });
-                    const data = await res.json();
-                    if (data.error) {
-                        throw new Error(data.error.message);
-                    }
-                    if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
-                        this.logTerminal(`[SUCCESS] Connection recovered using ${model} without search tools.`, "success-line");
-                        return data.candidates[0].content.parts[0].text;
-                    } else {
-                        throw new Error("Invalid response format on retry");
-                    }
-                } catch (retryErr) {
-                    console.warn(`Model ${model} without search tools failed:`, retryErr);
-                    lastError = retryErr;
-                }
             }
         }
         throw new Error(`Google API Error: ${lastError ? lastError.message : 'Connection failed'}`);
