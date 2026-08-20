@@ -234,40 +234,84 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
 
         elif parsed_url.path == "/api/search":
             params = urllib.parse.parse_qs(parsed_url.query)
-            query = params.get("q", [""])[0]
-            log_debug(f"Received search query: {query}")
+            query = params.get("q", [""])[0].strip()
+            tavily_key = params.get("key", [""])[0].strip()
+            log_debug(f"Received Tavily search query: {query}")
+            
+            # Read from keys.json if key wasn't passed in URL query
+            if not tavily_key:
+                keys_file = os.path.join(DIRECTORY, "keys.json")
+                if os.path.exists(keys_file):
+                    try:
+                        with open(keys_file, "r", encoding="utf-8") as f:
+                            k_data = json.load(f)
+                            tavily_key = k_data.get("tavily", "").strip()
+                    except Exception as e:
+                        log_debug(f"Error reading keys.json in search: {e}")
+            if not tavily_key:
+                tavily_key = os.environ.get("TAVILY_API_KEY", "").strip()
             
             results = []
-            if query:
+            answer = ""
+            error_msg = ""
+            
+            if not query:
+                error_msg = "No search query provided."
+            elif not tavily_key:
+                error_msg = "Tavily Search API key not configured."
+                log_debug(error_msg)
+            else:
                 try:
-                    search_url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(query)}"
-                    log_debug(f"Fetching DuckDuckGo URL: {search_url}")
+                    tavily_url = "https://api.tavily.com/search"
+                    payload = json.dumps({
+                        "api_key": tavily_key,
+                        "query": query,
+                        "search_depth": "basic",
+                        "include_answer": True,
+                        "max_results": 5
+                    }).encode("utf-8")
+                    
                     req = urllib.request.Request(
-                        search_url,
-                        headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+                        tavily_url,
+                        data=payload,
+                        headers={
+                            "Content-Type": "application/json",
+                            "User-Agent": "OmniAI/1.0"
+                        }
                     )
-                    with urllib.request.urlopen(req, timeout=5) as res:
-                        html = res.read().decode("utf-8")
-                        log_debug(f"HTML response length: {len(html)}")
-                        snippets = re.findall(r'<a class="result__snippet[^>]*>(.*?)</a>', html, re.DOTALL)
-                        titles = re.findall(r'<a[^>]+class="result__a"[^>]*>(.*?)</a>', html, re.DOTALL)
-                        log_debug(f"Found snippets count: {len(snippets)}, titles count: {len(titles)}")
-                        
-                        for i in range(min(5, len(snippets), len(titles))):
-                            clean_t = re.sub(r'<[^>]+>', '', titles[i]).strip()
-                            clean_s = re.sub(r'<[^>]+>', '', snippets[i]).strip()
+                    with urllib.request.urlopen(req, timeout=8) as res:
+                        t_data = json.loads(res.read().decode("utf-8"))
+                        answer = t_data.get("answer", "")
+                        raw_results = t_data.get("results", [])
+                        for r in raw_results:
                             results.append({
-                                "title": clean_t,
-                                "snippet": clean_s
+                                "title": r.get("title", "Untitled Source"),
+                                "url": r.get("url", ""),
+                                "content": r.get("content", ""),
+                                "snippet": (r.get("content", "") or "")[:350]
                             })
+                        log_debug(f"Tavily search successful. Extracted {len(results)} structured results.")
+                except urllib.error.HTTPError as he:
+                    error_body = ""
+                    try:
+                        error_body = he.read().decode("utf-8")
+                    except Exception:
+                        pass
+                    error_msg = f"Tavily API HTTP {he.code}: {he.reason} - {error_body}"
+                    log_debug(f"Tavily HTTP error: {error_msg}")
                 except Exception as e:
-                    err_msg = f"Exception: {e}\n{traceback.format_exc()}"
-                    log_debug(err_msg)
+                    error_msg = f"Tavily search error: {str(e)}"
+                    log_debug(f"Tavily error: {error_msg}\n{traceback.format_exc()}")
             
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            self.wfile.write(json.dumps({"results": results}).encode("utf-8"))
+            self.wfile.write(json.dumps({
+                "query": query,
+                "answer": answer,
+                "results": results,
+                "error": error_msg
+            }).encode("utf-8"))
 
         elif parsed_url.path == "/api/drive-proxy":
             params = urllib.parse.parse_qs(parsed_url.query)

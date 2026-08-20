@@ -1186,38 +1186,52 @@ const appState = {
         }
         
         let searchContext = "";
-        const isSearchCandidate = !mediaCard && 
+        const isCurrencyQuery = userTextLower.includes('usd to inr') || userTextLower.includes('inr to usd') || 
+                                userTextLower.includes('exchange rate') || userTextLower.includes('dollar rate') || 
+                                userTextLower.includes('dollar in inr') || userTextLower.includes('currency rate');
+
+        const isSearchCandidate = !mediaCard && !isCurrencyQuery &&
             (userTextLower.includes('today') || userTextLower.includes('now') || 
              userTextLower.includes('2025') || userTextLower.includes('2026') || 
              userTextLower.includes('current') || userTextLower.includes('news') || 
              userTextLower.includes('weather') || userTextLower.includes('latest') || 
-             userTextLower.includes('cutoff') || userTextLower.includes('recent') || 
-             userTextLower.includes('july 13') || userTextLower.includes('july 14') ||
+             userTextLower.includes('recent') || userTextLower.includes('price') ||
              userTextLower.includes('who is') || userTextLower.includes('what is') ||
              userTextLower.includes('realtime') || userTextLower.includes('real-time') ||
-             userTextLower.includes('date') || userTextLower.includes('happened') ||
-             userTextLower.includes('happen'));
+             userTextLower.includes('stock') || userTextLower.includes('score'));
 
         if (isSearchCandidate) {
-            this.logTerminal(`[AGENT] Performing fallback web search context retrieval for: "${userText}"`, "info-line");
+            const tavilyKey = getEffectiveKey('key-tavily');
+            this.logTerminal(`[TAVILY SEARCH 🌐] Initiating agentic web retrieval for: "${userText}"`, "info-line");
             try {
-                const searchRes = await fetch(`${window.location.origin}/api/search?q=${encodeURIComponent(userText)}`);
+                const searchRes = await fetch(`${window.location.origin}/api/search?q=${encodeURIComponent(userText)}&key=${encodeURIComponent(tavilyKey)}`);
                 const searchData = await searchRes.json();
+                
                 if (searchData.results && searchData.results.length > 0) {
-                    this.logTerminal(`[SUCCESS] Found ${searchData.results.length} web search results from DuckDuckGo. Grounding LLM prompt context...`, "success-line");
-                    searchContext = "REAL-TIME WEB SEARCH RESULTS (Retrieved July 14, 2026):\n";
-                    searchData.results.forEach(res => {
-                        searchContext += `[Source: ${res.title}]\n${res.snippet}\n\n`;
+                    this.logTerminal(`[SUCCESS] Retrieved ${searchData.results.length} verified live search results from Tavily Search API. Grounding context...`, "success-line");
+                    searchContext = "<SEARCH_RESULTS>\n";
+                    searchData.results.forEach((res, idx) => {
+                        searchContext += `Source [${idx + 1}]: "${res.title}"\nURL: ${res.url}\nContent: ${res.content || res.snippet}\n\n`;
                     });
-                    searchContext += "Using the search results above, answer the user query accurately. Cite the source title in your response.\n";
+                    if (searchData.answer) {
+                        searchContext += `Tavily Direct Summary: ${searchData.answer}\n\n`;
+                    }
+                    searchContext += "</SEARCH_RESULTS>\n\n" +
+                        "SYSTEM DIRECTIVE FOR SEARCH: Answer using the verified search results provided in <SEARCH_RESULTS> above. Cite the source name and link in markdown format [Source: Title](URL) for every factual claim. If the search results do not contain the answer, say so explicitly rather than guessing.\n\n";
                 } else {
-                    this.logTerminal("[WARNING] No web search matches returned. Proceeding with static context.", "warning-line");
+                    const failReason = searchData.error || "No matching live results found.";
+                    this.logTerminal(`[TAVILY] Live search unavailable: ${failReason}`, "warning-line");
+                    searchContext = `<SEARCH_STATUS>Live web search unavailable (${failReason}). You do NOT have live web browsing for this response.</SEARCH_STATUS>\n\n` +
+                        "SYSTEM DIRECTIVE: If the user is asking for real-time news, breaking events, or current live facts that require active web browsing, say plainly: 'I don't have live web access right now (Tavily Search API key is not configured or search is unavailable). Please add a Tavily Search API key in the sidebar to enable live web search.' Do NOT make up facts or imply that you browsed the web.\n\n";
                 }
             } catch (searchErr) {
-                console.error("Search fetch failed:", searchErr);
-                this.logTerminal(`[ERROR] Custom web search lookup failed: ${searchErr.message}. Fallback active.`, "warning-line");
+                console.error("Tavily search fetch failed:", searchErr);
+                this.logTerminal(`[ERROR] Web search lookup failed: ${searchErr.message}.`, "warning-line");
+                searchContext = `<SEARCH_STATUS>Live web search failed (${searchErr.message}).</SEARCH_STATUS>\n\n` +
+                    "SYSTEM DIRECTIVE: State plainly that live web access is currently unavailable rather than guessing.\n\n";
             }
         }
+
         const systemDirective = "You are OmniAI, a universal, highly intelligent, friendly, and helpful AI co-pilot. CRITICAL LANGUAGE INSTRUCTION: You MUST ALWAYS detect the exact language, dialect, and tone used by the user (including Hinglish, Hindi, Spanish, French, German, Japanese, Arabic, Bengali, Tamil, Telugu, Russian, etc.) and respond fluently, naturally, and warmly in the EXACT SAME LANGUAGE and style that the user spoke in. If the user speaks in Hinglish (e.g. 'are bhai kuch samjha do'), reply in warm, clear, friendly Hinglish. Always answer the user's questions clearly, accurately, and conversationally.\n\n";
         const finalPrompt = systemDirective + searchContext + contextText + "USER: " + userText;
 
@@ -2771,7 +2785,7 @@ function saveKey(input) {
 }
 
 async function loadSavedKeys() {
-    const keyIds = ['key-openai', 'key-gemini', 'key-anthropic', 'key-groq', 'key-luma'];
+    const keyIds = ['key-openai', 'key-gemini', 'key-anthropic', 'key-groq', 'key-luma', 'key-tavily'];
     keyIds.forEach(id => {
         const saved = localStorage.getItem('omni_key_' + id);
         if (saved) {
@@ -2799,6 +2813,11 @@ async function loadSavedKeys() {
                 localStorage.setItem('omni_key_key-luma', data.luma);
                 const el = document.getElementById('key-luma');
                 if (el) el.value = data.luma;
+            }
+            if (data.tavily) {
+                localStorage.setItem('omni_key_key-tavily', data.tavily);
+                const el = document.getElementById('key-tavily');
+                if (el) el.value = data.tavily;
             }
         }
     } catch (err) {
