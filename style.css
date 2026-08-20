@@ -1029,29 +1029,62 @@ body {
    ========================================================================== */
 .chat-row-wrapper {
     width: 100%;
-    border-bottom: 1px solid rgba(255,255,255,0.02);
-    padding: 24px 0;
+    padding: 12px 24px;
+    display: flex;
+    box-sizing: border-box;
+}
+
+.chat-row-wrapper.ai-row {
+    justify-content: flex-start;
 }
 
 .chat-row-wrapper.user-row {
-    background: rgba(255, 255, 255, 0.01);
+    justify-content: flex-end;
 }
 
 .message-bubble-layout {
-    max-width: 760px;
-    margin: 0 auto;
-    padding: 0 20px;
+    max-width: 78%;
     display: flex;
-    gap: 16px;
+    gap: 12px;
+}
+
+.chat-row-wrapper.ai-row .message-bubble-layout {
+    flex-direction: row;
+    align-items: flex-start;
+}
+
+.chat-row-wrapper.user-row .message-bubble-layout {
+    flex-direction: row-reverse;
+    align-items: flex-start;
 }
 
 .bubble-avatar {
-    width: 32px; height: 32px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     background: linear-gradient(135deg, var(--color-llm) 0%, var(--color-image) 100%);
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 750; font-size: 13px; color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 750;
+    font-size: 13px;
+    color: white;
     flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.bubble-content-wrapper {
+    display: flex;
+    flex-direction: column;
+    max-width: 100%;
+}
+
+.chat-row-wrapper.user-row .bubble-content-wrapper {
+    align-items: flex-end;
+}
+
+.chat-row-wrapper.ai-row .bubble-content-wrapper {
+    align-items: flex-start;
 }
 
 .bubble-meta-name {
@@ -1059,13 +1092,33 @@ body {
     font-weight: 700;
     color: var(--text-secondary);
     margin-bottom: 4px;
+    padding: 0 4px;
 }
 
 .message-content {
-    flex: 1;
     font-size: 13.5px;
     line-height: 1.6;
+    border-radius: 14px;
+    padding: 12px 16px;
+    word-break: break-word;
+}
+
+.chat-row-wrapper.user-row .message-content {
+    background: linear-gradient(135deg, rgba(147, 51, 234, 0.35) 0%, rgba(59, 130, 246, 0.35) 100%);
+    border: 1px solid rgba(168, 85, 247, 0.4);
+    border-top-right-radius: 4px;
+    color: #ffffff;
+    box-shadow: 0 4px 20px rgba(124, 58, 237, 0.15);
+    text-align: left;
+}
+
+.chat-row-wrapper.ai-row .message-content {
+    background: rgba(30, 33, 48, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-top-left-radius: 4px;
     color: #e2e8f0;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(8px);
 }
 
 .message-content p {

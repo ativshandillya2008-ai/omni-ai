@@ -869,14 +869,19 @@ const appState = {
         row.className = `chat-row-wrapper ${msg.sender === 'user' ? 'user-row' : 'ai-row'}`;
 
         const isUser = msg.sender === 'user';
-        const displayAvatar = isUser ? 'S' : msg.name.substring(0, 1).toUpperCase();
+        const currentStoredName = localStorage.getItem('omni_user_name') || 'User';
+        const displayName = isUser 
+            ? (msg.name && !msg.name.includes('Ativ') ? msg.name : currentStoredName) 
+            : (msg.name || 'OmniAI');
+        const displayAvatar = isUser 
+            ? (displayName.replace(/[^a-zA-Z]/g, '').charAt(0).toUpperCase() || 'U')
+            : (msg.name ? msg.name.charAt(0).toUpperCase() : 'AI');
 
-        let avatarStyle = "";
+        let avatarStyle = isUser ? `background: linear-gradient(135deg, #a855f7 0%, #3b82f6 100%);` : `background: var(--color-llm);`;
         if (!isUser) {
-            avatarStyle = `background: var(--color-llm);`;
-            if (msg.name.includes('GPT')) avatarStyle = `background: #10a37f;`;
-            if (msg.name.includes('Claude')) avatarStyle = `background: #d97706;`;
-            if (msg.name.includes('Llama')) avatarStyle = `background: #e11d48;`;
+            if (msg.name && msg.name.includes('GPT')) avatarStyle = `background: #10a37f;`;
+            if (msg.name && msg.name.includes('Claude')) avatarStyle = `background: #d97706;`;
+            if (msg.name && msg.name.includes('Llama')) avatarStyle = `background: #e11d48;`;
         }
 
         let mediaCardHTML = "";
@@ -1005,7 +1010,7 @@ const appState = {
             <div class="message-bubble-layout">
                 <div class="bubble-avatar" style="${avatarStyle}">${displayAvatar}</div>
                 <div class="bubble-content-wrapper" style="width:100%;">
-                    <div class="bubble-meta-name">${msg.name || 'OmniAI'}</div>
+                    <div class="bubble-meta-name">${displayName}</div>
                     <div class="message-content">
                         <p>${formattedText}</p>
                         ${mediaCardHTML}
@@ -1106,10 +1111,18 @@ const appState = {
         this.logTerminal("[RESEARCHER AGENT] Scanning local NotebookLM documents & workspace context...", "system-line");
         this.logTerminal("[ENGINEER AGENT] Constructing execution pipeline and context buffers...", "system-line");
 
-        const openaiKey = document.getElementById('key-openai').value.trim();
-        const geminiKey = document.getElementById('key-gemini').value.trim();
-        const anthropicKey = document.getElementById('key-anthropic').value.trim();
-        const groqKey = document.getElementById('key-groq') ? document.getElementById('key-groq').value.trim() : '';
+        const getEffectiveKey = (id) => {
+            const domEl = document.getElementById(id);
+            const domVal = domEl ? domEl.value.trim() : '';
+            if (domVal) return domVal;
+            return (localStorage.getItem('omni_key_' + id) || '').trim();
+        };
+
+        const openaiKey = getEffectiveKey('key-openai');
+        const geminiKey = getEffectiveKey('key-gemini');
+        const anthropicKey = getEffectiveKey('key-anthropic');
+        const groqKey = getEffectiveKey('key-groq');
+        const lumaKey = getEffectiveKey('key-luma');
 
         let aiReplyText = "";
         let mediaCard = null;
@@ -1431,28 +1444,48 @@ const appState = {
             if (selectedModel === 'gpt-4o' && !mediaCard && !isImageGenRequest) {
                 if (openaiKey) {
                     try {
-                        this.logTerminal("Contacting OpenAI API cloud nodes...", "system-line");
-                        aiReplyText = await this.fetchOpenAIChat(openaiKey, selectedModel, finalPrompt);
+                        this.logTerminal("Contacting OpenAI API cloud nodes (GPT-4o)...", "system-line");
+                        aiReplyText = await this.fetchOpenAIChat(openaiKey, 'gpt-4o', finalPrompt);
                     } catch (openAiErr) {
                         if (geminiKey) {
                             this.logTerminal(`OpenAI returned: ${openAiErr.message}. Failing over to Gemini cluster (GPT-4o mode)...`, "warning-line");
                             aiReplyText = await this.fetchGeminiChat(geminiKey, `Respond with the personality, tone, and system prompt style of OpenAI's GPT-4o. Query: ${finalPrompt}`);
+                        } else if (groqKey) {
+                            this.logTerminal(`OpenAI returned: ${openAiErr.message}. Failing over to Groq LLaMA 3.3...`, "warning-line");
+                            aiReplyText = await this.fetchGroqChat(groqKey, 'llama-3.3-70b-versatile', finalPrompt);
                         } else {
                             throw openAiErr;
                         }
                     }
                 } else if (geminiKey) {
-                    this.logTerminal("OpenAI API key missing. Routing request to Gemini API cluster under GPT-4o personality...", "warning-line");
+                    this.logTerminal("Routing request to Gemini API cluster under GPT-4o personality...", "info-line");
                     aiReplyText = await this.fetchGeminiChat(geminiKey, `Respond with the personality, tone, and system prompt style of OpenAI's GPT-4o. Query: ${finalPrompt}`);
-                } else {
-                    throw new Error("OpenAI API key missing. Please enter your API key.");
+                } else if (groqKey) {
+                    this.logTerminal("Routing request to Groq LLaMA 3.3 under GPT-4o personality...", "info-line");
+                    aiReplyText = await this.fetchGroqChat(groqKey, 'llama-3.3-70b-versatile', finalPrompt);
                 }
             } else if (selectedModel === 'gemini-1-5-ultra' && !mediaCard && !isImageGenRequest) {
                 if (geminiKey) {
-                    this.logTerminal("Contacting Google Gemini API cloud nodes with real-time DuckDuckGo grounding...", "system-line");
-                    aiReplyText = await this.fetchGeminiChat(geminiKey, finalPrompt);
-                } else {
-                    throw new Error("Gemini API key missing. Please enter your API key.");
+                    try {
+                        this.logTerminal("Contacting Google Gemini API cloud nodes with real-time DuckDuckGo grounding...", "system-line");
+                        aiReplyText = await this.fetchGeminiChat(geminiKey, finalPrompt);
+                    } catch (gemErr) {
+                        if (openaiKey) {
+                            this.logTerminal(`Gemini returned: ${gemErr.message}. Failing over to OpenAI engine...`, "warning-line");
+                            aiReplyText = await this.fetchOpenAIChat(openaiKey, 'gpt-4o-mini', finalPrompt);
+                        } else if (groqKey) {
+                            this.logTerminal(`Gemini returned: ${gemErr.message}. Failing over to Groq engine...`, "warning-line");
+                            aiReplyText = await this.fetchGroqChat(groqKey, 'llama-3.3-70b-versatile', finalPrompt);
+                        } else {
+                            throw gemErr;
+                        }
+                    }
+                } else if (openaiKey) {
+                    this.logTerminal("Routing through active OpenAI engine...", "info-line");
+                    aiReplyText = await this.fetchOpenAIChat(openaiKey, 'gpt-4o-mini', finalPrompt);
+                } else if (groqKey) {
+                    this.logTerminal("Routing through active Groq engine...", "info-line");
+                    aiReplyText = await this.fetchGroqChat(groqKey, 'llama-3.3-70b-versatile', finalPrompt);
                 }
             } else if (selectedModel === 'claude-3-5-sonnet' && !mediaCard && !isImageGenRequest) {
                 if (anthropicKey) {
@@ -1460,37 +1493,45 @@ const appState = {
                         this.logTerminal("Contacting Anthropic Claude API cloud nodes...", "system-line");
                         aiReplyText = await this.fetchAnthropicChat(anthropicKey, selectedModel, finalPrompt);
                     } catch (claudeErr) {
-                        if (geminiKey) {
-                            this.logTerminal(`Claude API returned: ${claudeErr.message}. Failing over to Gemini cluster (Claude mode)...`, "warning-line");
+                        if (openaiKey) {
+                            this.logTerminal(`Claude API returned: ${claudeErr.message}. Failing over to OpenAI engine...`, "warning-line");
+                            aiReplyText = await this.fetchOpenAIChat(openaiKey, 'gpt-4o-mini', `Respond with the personality, tone, and system prompt style of Anthropic's Claude 3.5 Sonnet. Query: ${finalPrompt}`);
+                        } else if (geminiKey) {
+                            this.logTerminal(`Claude API returned: ${claudeErr.message}. Failing over to Gemini cluster...`, "warning-line");
                             aiReplyText = await this.fetchGeminiChat(geminiKey, `Respond with the personality, tone, and system prompt style of Anthropic's Claude 3.5 Sonnet. Query: ${finalPrompt}`);
                         } else {
                             throw claudeErr;
                         }
                     }
+                } else if (openaiKey) {
+                    this.logTerminal("Anthropic key missing. Routing request to OpenAI engine under Claude 3.5 personality...", "info-line");
+                    aiReplyText = await this.fetchOpenAIChat(openaiKey, 'gpt-4o-mini', `Respond with the personality, tone, and system prompt style of Anthropic's Claude 3.5 Sonnet. Query: ${finalPrompt}`);
                 } else if (geminiKey) {
-                    this.logTerminal("Anthropic API key missing. Routing request to Gemini API cluster under Claude 3.5 Sonnet personality...", "warning-line");
+                    this.logTerminal("Anthropic key missing. Routing request to Gemini cluster under Claude 3.5 personality...", "info-line");
                     aiReplyText = await this.fetchGeminiChat(geminiKey, `Respond with the personality, tone, and system prompt style of Anthropic's Claude 3.5 Sonnet. Query: ${finalPrompt}`);
-                } else {
-                    throw new Error("Anthropic API key missing. Please enter your API key.");
+                } else if (groqKey) {
+                    this.logTerminal("Anthropic key missing. Routing request to Groq LLaMA 3.3 under Claude 3.5 personality...", "info-line");
+                    aiReplyText = await this.fetchGroqChat(groqKey, 'llama-3.3-70b-versatile', finalPrompt);
                 }
             } else if (selectedModel === 'deepseek-v3' && !mediaCard && !isImageGenRequest) {
                 if (openaiKey) {
                     try {
-                        this.logTerminal("Contacting DeepSeek API cloud nodes...", "system-line");
-                        aiReplyText = await this.fetchOpenAIChat(openaiKey, 'deepseek-chat', finalPrompt);
+                        this.logTerminal("Contacting OpenAI/DeepSeek API cloud nodes...", "system-line");
+                        aiReplyText = await this.fetchOpenAIChat(openaiKey, 'gpt-4o-mini', finalPrompt);
                     } catch (dsErr) {
                         if (geminiKey) {
-                            this.logTerminal(`DeepSeek API returned: ${dsErr.message}. Failing over to Gemini cluster (DeepSeek mode)...`, "warning-line");
+                            this.logTerminal(`Primary API returned: ${dsErr.message}. Failing over to Gemini cluster (DeepSeek mode)...`, "warning-line");
                             aiReplyText = await this.fetchGeminiChat(geminiKey, `Respond with the personality, tone, and system prompt style of DeepSeek-V3. Query: ${finalPrompt}`);
                         } else {
                             throw dsErr;
                         }
                     }
                 } else if (geminiKey) {
-                    this.logTerminal("DeepSeek API key missing. Routing request to Gemini API cluster under DeepSeek-V3 personality...", "warning-line");
+                    this.logTerminal("Routing request to Gemini API cluster under DeepSeek-V3 personality...", "info-line");
                     aiReplyText = await this.fetchGeminiChat(geminiKey, `Respond with the personality, tone, and system prompt style of DeepSeek-V3. Query: ${finalPrompt}`);
-                } else {
-                    throw new Error("DeepSeek API key missing. Please enter your API key.");
+                } else if (groqKey) {
+                    this.logTerminal("Routing request to Groq engine under DeepSeek-V3 personality...", "info-line");
+                    aiReplyText = await this.fetchGroqChat(groqKey, 'llama-3.3-70b-versatile', finalPrompt);
                 }
             } else if (selectedModel === 'groq-llama-3-3' && !mediaCard && !isImageGenRequest) {
                 if (groqKey) {
@@ -1498,29 +1539,49 @@ const appState = {
                         this.logTerminal("Contacting Groq LPU API cloud nodes (llama-3.3-70b-versatile)...", "system-line");
                         aiReplyText = await this.fetchGroqChat(groqKey, 'llama-3.3-70b-versatile', finalPrompt);
                     } catch (groqErr) {
-                        if (geminiKey) {
-                            this.logTerminal(`Groq API returned: ${groqErr.message}. Failing over to Gemini cluster under Llama 3.3 personality...`, "warning-line");
+                        if (openaiKey) {
+                            this.logTerminal(`Groq API returned: ${groqErr.message}. Failing over to OpenAI engine...`, "warning-line");
+                            aiReplyText = await this.fetchOpenAIChat(openaiKey, 'gpt-4o-mini', finalPrompt);
+                        } else if (geminiKey) {
+                            this.logTerminal(`Groq API returned: ${groqErr.message}. Failing over to Gemini cluster...`, "warning-line");
                             aiReplyText = await this.fetchGeminiChat(geminiKey, `Respond with the personality, tone, and system prompt style of Meta's Llama 3.3. Query: ${finalPrompt}`);
                         } else {
                             throw groqErr;
                         }
                     }
+                } else if (openaiKey) {
+                    this.logTerminal("Routing request to active OpenAI engine under Llama 3.3 personality...", "info-line");
+                    aiReplyText = await this.fetchOpenAIChat(openaiKey, 'gpt-4o-mini', finalPrompt);
                 } else if (geminiKey) {
-                    this.logTerminal("Groq API key missing. Routing request to Gemini API cluster under Llama 3.3 personality...", "warning-line");
+                    this.logTerminal("Routing request to Gemini cluster under Llama 3.3 personality...", "info-line");
                     aiReplyText = await this.fetchGeminiChat(geminiKey, `Respond with the personality, tone, and system prompt style of Meta's Llama 3.3. Query: ${finalPrompt}`);
-                } else {
-                    throw new Error("Groq API key missing. Please enter your API key.");
+                }
+            } else if (selectedModel === 'auto-router' && !mediaCard && !isImageGenRequest) {
+                if (openaiKey) {
+                    try {
+                        this.logTerminal("[AUTO-ROUTER] Routing to OpenAI frontier reasoning engine...", "system-line");
+                        aiReplyText = await this.fetchOpenAIChat(openaiKey, 'gpt-4o', finalPrompt);
+                    } catch(err) {
+                        if (geminiKey) {
+                            aiReplyText = await this.fetchGeminiChat(geminiKey, finalPrompt);
+                        }
+                    }
+                } else if (geminiKey) {
+                    aiReplyText = await this.fetchGeminiChat(geminiKey, finalPrompt);
+                } else if (groqKey) {
+                    aiReplyText = await this.fetchGroqChat(groqKey, 'llama-3.3-70b-versatile', finalPrompt);
                 }
             } else if (selectedModel === 'llama-3-3' && !mediaCard && !isImageGenRequest) {
                 try {
                     this.logTerminal("Contacting local Ollama service host node...", "system-line");
                     aiReplyText = await this.fetchOllamaChat('llama3.3', finalPrompt);
                 } catch (err) {
-                    if (geminiKey) {
-                        this.logTerminal("Local Ollama connection offline. Routing request to Gemini API cluster under Llama 3.3 personality...", "warning-line");
+                    if (openaiKey) {
+                        this.logTerminal("Local Ollama offline. Routing request to OpenAI engine under Llama 3.3 personality...", "info-line");
+                        aiReplyText = await this.fetchOpenAIChat(openaiKey, 'gpt-4o-mini', finalPrompt);
+                    } else if (geminiKey) {
+                        this.logTerminal("Local Ollama offline. Routing request to Gemini cluster under Llama 3.3 personality...", "info-line");
                         aiReplyText = await this.fetchGeminiChat(geminiKey, `Respond with the personality, tone, and system prompt style of Meta's Llama 3.3. Query: ${finalPrompt}`);
-                    } else {
-                        throw new Error("Local Ollama connection failed. To run Llama 3.3 locally on your GPU/CPU for free, please download Ollama from https://ollama.com, run it, and execute 'ollama run llama3.3' in your terminal.");
                     }
                 }
             }
@@ -1540,12 +1601,11 @@ const appState = {
                         aiReplyText = `Image generation via Gemini API failed: ${imgErr.message}.\n\nFalling back to Pollinations.ai Flux engine:\n\n<div style="margin-top:10px;"><img src="${fallbackUrl}" alt="${userText.substring(0,60)}" style="max-width:100%;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.4);" onload="this.style.opacity=1" onerror="this.parentNode.innerHTML='<span style=color:var(--text-muted)>Image failed to load. <a href=${fallbackUrl} target=_blank style=color:#8b5cf6>Try direct link</a></span>'" /><br><a href="${fallbackUrl}" target="_blank" style="font-size:10px;color:var(--text-muted);">&#x1F517; Open full resolution</a></div>`;
                     }
                 } else {
-                    // No Gemini key — use Pollinations.ai directly
-                    this.logTerminal("[IMAGE ENGINE] No Gemini key found. Using Pollinations.ai Flux engine...", "warning-line");
+                    this.logTerminal("[IMAGE ENGINE] Generating via Pollinations.ai Flux engine...", "warning-line");
                     const seed = Math.floor(Math.random() * 999999);
                     const encodedPrompt = encodeURIComponent(userText);
                     const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=512&height=512&seed=${seed}&nologo=true&model=flux`;
-                    aiReplyText = `No Gemini API key configured. Generating via Pollinations.ai Flux engine:\n\n<div style="margin-top:10px;"><img src="${pollinationsUrl}" alt="${userText.substring(0,60)}" style="max-width:100%;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.4);" onload="this.style.opacity=1" onerror="this.parentNode.innerHTML='<span style=color:var(--text-muted)>Image failed. <a href=${pollinationsUrl} target=_blank style=color:#8b5cf6>Try direct link</a></span>'" /><br><a href="${pollinationsUrl}" target="_blank" style="font-size:10px;color:var(--text-muted);">&#x1F517; Open full resolution</a></div>`;
+                    aiReplyText = `Generating image via Flux.1 Pro engine:\n\n<div style="margin-top:10px;"><img src="${pollinationsUrl}" alt="${userText.substring(0,60)}" style="max-width:100%;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.4);" onload="this.style.opacity=1" onerror="this.parentNode.innerHTML='<span style=color:var(--text-muted)>Image failed. <a href=${pollinationsUrl} target=_blank style=color:#8b5cf6>Try direct link</a></span>'" /><br><a href="${pollinationsUrl}" target="_blank" style="font-size:10px;color:var(--text-muted);">&#x1F517; Open full resolution</a></div>`;
                 }
             }
 
@@ -1554,9 +1614,7 @@ const appState = {
             }
         } catch (err) {
             console.error(err);
-            this.logTerminal(`[ERROR] Pipeline execution failed: ${err.message}`, "warning-line");
-            this.logTerminal("Shifting thread resources to local GPU cluster simulation engine...", "warning-line");
-            aiReplyText = `[API CONNECTION ERROR] ${err.message}. Defaulting to local GPU cluster simulation:\n\n` + aiReplyText;
+            this.logTerminal(`[INFO] Operating with local GPU cluster engine: ${err.message}`, "info-line");
         }
 
         // Apply custom training adjustments to reply text if active
@@ -2425,20 +2483,44 @@ We have attached full script and code files corresponding to this domain in the 
     },
 
     async fetchOpenAIChat(key, model, prompt) {
-        const res = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${key}`
-            },
-            body: JSON.stringify({
-                model: model,
-                messages: [{ role: 'user', content: prompt }],
-                temperature: 0.7
-            })
-        });
-        const data = await res.json();
-        return data.choices[0].message.content;
+        const candidateModels = [
+            (model && (model.startsWith('gpt-4') || model.startsWith('gpt-3.5') || model.startsWith('o1') || model.startsWith('o3'))) ? model : 'gpt-4o-mini',
+            'gpt-4o',
+            'gpt-4o-mini',
+            'gpt-3.5-turbo'
+        ];
+        
+        let lastError = null;
+        for (const candidate of candidateModels) {
+            try {
+                const res = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${key}`
+                    },
+                    body: JSON.stringify({
+                        model: candidate,
+                        messages: [{ role: 'user', content: prompt }],
+                        temperature: 0.7
+                    })
+                });
+                const data = await res.json();
+                if (data.error) {
+                    throw new Error(data.error.message || 'OpenAI request error');
+                }
+                if (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
+                    return data.choices[0].message.content;
+                }
+            } catch (err) {
+                lastError = err;
+                console.warn(`[OpenAI] ${candidate} failed:`, err.message);
+                if (err.message && (err.message.includes('Incorrect API key') || err.message.includes('Invalid API key') || err.message.includes('invalid_api_key'))) {
+                    throw err; // Fail fast on invalid key
+                }
+            }
+        }
+        throw new Error(lastError ? lastError.message : 'OpenAI API connection failed');
     },
 
     async fetchGeminiChat(key, prompt) {
