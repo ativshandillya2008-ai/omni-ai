@@ -33,15 +33,49 @@ def is_rate_limited(ip, max_requests=RATE_LIMIT_MAX_REQUESTS, window=RATE_LIMIT_
         RATE_LIMIT_STORE[ip] = valid_timestamps
         return False
 
+# ─── Environment & Config Loader ──────────────────────────────────────────────
+def load_env_file():
+    env_path = os.path.join(DIRECTORY, ".env")
+    if os.path.exists(env_path):
+        try:
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip().strip("'\"")
+                        if k and k not in os.environ:
+                            os.environ[k] = v
+        except Exception as e:
+            log_debug(f"Error loading .env: {e}")
+
+load_env_file()
+
+def get_admin_emails():
+    # Read comma-separated admin emails from environment (set via .env)
+    raw = os.environ.get("ADMIN_EMAILS", "")
+    if not raw:
+        # Fallback to keys.json if present
+        keys_file = os.path.join(DIRECTORY, "keys.json")
+        if os.path.exists(keys_file):
+            try:
+                with open(keys_file, "r", encoding="utf-8") as f:
+                    k_data = json.load(f)
+                    raw = k_data.get("admin_emails", "")
+            except Exception:
+                pass
+    return [e.strip().lower() for e in raw.split(",") if e.strip()]
+
 # ─── Server-Side Session Store ────────────────────────────────────────────────
 SESSION_LOCK = threading.Lock()
 SESSIONS = {}  # session_token -> {"email": email, "role": role, "created_at": float}
-ADMIN_EMAIL = "ativsandillya2008@gmail.com"
 
 def create_session(email, role=None):
     clean_email = email.strip().lower()
     if not role:
-        role = "admin" if clean_email == ADMIN_EMAIL.lower() else "user"
+        admin_list = get_admin_emails()
+        role = "admin" if clean_email in admin_list else "user"
     token = secrets.token_hex(32)
     with SESSION_LOCK:
         SESSIONS[token] = {
