@@ -1417,12 +1417,12 @@ public class Program {
                 let methodStr = "";
 
                 if (disc > 0) {
-                    const r1 = (-b + Math.sqrt(disc)) / (2 * a);
-                    const r2 = (-b - Math.sqrt(disc)) / (2 * a);
+                    const r1 = ((-b + Math.sqrt(disc)) / (2 * a)).toFixed(4).replace(/\.?0+$/, '');
+                    const r2 = ((-b - Math.sqrt(disc)) / (2 * a)).toFixed(4).replace(/\.?0+$/, '');
                     rootStr = `\\[x_1 = ${r1}, \\quad x_2 = ${r2}\\]`;
                     methodStr = `Since the discriminant $\\Delta > 0$, there are **two distinct real roots**:\n\n` +
                         `1. **Discriminant ($\\Delta$)**:\n` +
-                        `   \\[\\Delta = b^2 - 4ac = (${b})^2 - 4(${a})(${c}) = ${b*b} - ${4*a*c} = ${disc}\\]\n\n` +
+                        `   \\[\\Delta = b^2 - 4ac = (${b})^2 - 4(${a})(${c}) = ${b*b} - (${4*a*c}) = ${disc}\\]\n\n` +
                         `2. **Applying the Quadratic Formula**:\n` +
                         `   \\[x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a} = \\frac{-(${b}) \\pm \\sqrt{${disc}}}{2(${a})}\\]\n\n` +
                         `3. **Calculating Individual Roots**:\n` +
