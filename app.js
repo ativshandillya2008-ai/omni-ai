@@ -12,13 +12,20 @@ const appState = {
                 {
                     sender: 'ai',
                     name: 'Gemini 1.5 Ultra',
-                    text: 'Hello Ativ! I am your global co-pilot. I have full context of all NotebookLM documents in your sidebar. Type your prompt below to generate text, code sandboxes, detailed research, images, or videos in-line!'
+                    text: 'Hello! I am your global co-pilot. I have full context of all NotebookLM documents in your sidebar. Type your prompt below to generate text, code sandboxes, detailed research, images, or videos in-line!'
                 }
             ]
         }
     },
     activeThreadId: 'default',
     sources: [],
+
+    getUserFirstName() {
+        const raw = localStorage.getItem('omni_user_name') || '';
+        const cleaned = raw.replace(/\(.*?\)/g, '').trim();
+        if (!cleaned || cleaned.toLowerCase().includes('guest')) return 'there';
+        return cleaned.split(' ')[0] || 'there';
+    },
     
     init() {
         this.loadConversationsFromStorage();
@@ -139,6 +146,14 @@ const appState = {
                 console.error("Error loading conversations", e);
             }
         }
+        // Update first welcome message if it contains an old static greeting
+        if (this.conversations && this.conversations['default'] && this.conversations['default'].messages && this.conversations['default'].messages.length > 0) {
+            const firstMsg = this.conversations['default'].messages[0];
+            if (firstMsg.sender === 'ai' && (firstMsg.text.startsWith('Hello') || firstMsg.text.startsWith('Hi'))) {
+                const greetingName = this.getUserFirstName();
+                firstMsg.text = `Hello ${greetingName}! I am your global co-pilot. I have full context of all NotebookLM documents in your sidebar. Type your prompt below to generate text, code sandboxes, detailed research, images, or videos in-line!`;
+            }
+        }
     },
 
     // 1. Password Verification & Role-Based Access Control
@@ -190,6 +205,16 @@ const appState = {
             const evolutionSection = document.getElementById('auto-evolution-section');
             if (evolutionSection) {
                 evolutionSection.style.display = isAdmin ? 'block' : 'none';
+            }
+
+            // Update greeting on active thread to match the logged-in user
+            const rawFirst = userName.replace(/\(.*?\)/g, '').trim().split(' ')[0];
+            const greetingName = (rawFirst && rawFirst.toLowerCase() !== 'guest') ? rawFirst : 'there';
+            if (this.conversations && this.conversations['default'] && this.conversations['default'].messages && this.conversations['default'].messages.length > 0) {
+                const firstMsg = this.conversations['default'].messages[0];
+                if (firstMsg.sender === 'ai' && (firstMsg.text.startsWith('Hello') || firstMsg.text.startsWith('Hi'))) {
+                    firstMsg.text = `Hello ${greetingName}! I am your global co-pilot. I have full context of all NotebookLM documents in your sidebar. Type your prompt below to generate text, code sandboxes, detailed research, images, or videos in-line!`;
+                }
             }
 
             // Transition to Workspace
@@ -584,10 +609,11 @@ const appState = {
                     selectedModelText = modelSelector.options[modelSelector.selectedIndex].text.replace(/\(.*\)/, '').trim();
                 }
 
+                const greetingName = this.getUserFirstName();
                 const initialGreeting = {
                     sender: 'ai',
                     name: selectedModelText,
-                    text: `Hello Ativ! I am your ${selectedModelText} assistant. How can I help you today? Type any prompt below to ask questions, solve math, request code sandboxes, or generate images and videos!`
+                    text: `Hello ${greetingName}! I am your ${selectedModelText} assistant. How can I help you today? Type any prompt below to ask questions, solve math, request code sandboxes, or generate images and videos!`
                 };
 
                 this.conversations[id] = {
@@ -813,7 +839,8 @@ const appState = {
         if (welcomeState) welcomeState.classList.add('hidden');
 
         // Append User Message
-        const userMsg = { sender: 'user', name: 'Ativ Shandillya (Owner)', text: text };
+        const currentUserName = localStorage.getItem('omni_user_name') || 'User';
+        const userMsg = { sender: 'user', name: currentUserName, text: text };
         this.conversations[this.activeThreadId].messages.push(userMsg);
         this.renderMessageBubble(userMsg);
 

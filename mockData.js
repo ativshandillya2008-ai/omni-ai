@@ -916,7 +916,7 @@ public class Program {
                 <h1 class="glow-text">OMNI ORCHESTRATOR</h1>
                 <p class="subtitle">Automated Sandbox &bull; Created by ${agent}</p>
                 <div class="content-box">
-                    <p>Welcome, Ativ. Your custom workspace is running with unlimited GPU allocations.</p>
+                    <p>Welcome. Your custom workspace is running with active cloud & local allocations.</p>
                     <p style="margin-top: 10px; line-height: 1.6;">This page was generated automatically. You can link nodes to change the styling, inject research docs, or trigger live builds in real-time.</p>
                 </div>
                 <div class="button-group">
@@ -1329,9 +1329,13 @@ public class Program {
         // Global Orchestrator Advisor
         const nodesCount = currentContext.nodesCount || 0;
         const sourcesCount = currentContext.sourcesCount || 0;
+        const savedUserName = (typeof localStorage !== 'undefined' && localStorage.getItem('omni_user_name'))
+            ? localStorage.getItem('omni_user_name').replace(/\(.*?\)/g, '').trim().split(' ')[0]
+            : '';
+        const greetingName = (savedUserName && savedUserName.toLowerCase() !== 'guest') ? savedUserName : 'there';
 
         if (msg.includes('hello') || msg.includes('hi')) {
-            return `Hello Ativ! I am your Orchestrator Advisor. Currently, you have ${nodesCount} active nodes on your canvas and ${sourcesCount} documents attached to your NotebookLM sources list. What can we build next?`;
+            return `Hello ${greetingName}! I am your Orchestrator Advisor. Currently, you have ${nodesCount} active nodes on your canvas and ${sourcesCount} documents attached to your NotebookLM sources list. What can we build next?`;
         }
         if (msg.includes('sources') || msg.includes('notebooklm') || msg.includes('documents')) {
             if (sourcesCount === 0) {
@@ -1351,6 +1355,10 @@ public class Program {
 
     getLLMResponse: (message, agentId, sources = []) => {
         const msg = message.toLowerCase();
+        const savedUserName = (typeof localStorage !== 'undefined' && localStorage.getItem('omni_user_name'))
+            ? localStorage.getItem('omni_user_name').replace(/\(.*?\)/g, '').trim().split(' ')[0]
+            : '';
+        const greetingName = (savedUserName && savedUserName.toLowerCase() !== 'guest') ? savedUserName : 'there';
         
         let sourcesText = "";
         if (sources.length > 0) {
@@ -1359,7 +1367,7 @@ public class Program {
 
         if (msg.includes('hello') || msg.includes('hi')) {
             return {
-                text: `Hello Ativ! I am your global OmniAI Orchestrator. Currently running under Owner Privilege Mode with unlimited VRAM allocations. How can I help you construct websites, generate molecular physics simulations, or create images and video loops?${sourcesText}`
+                text: `Hello ${greetingName}! I am your global OmniAI Orchestrator. How can I help you construct websites, generate molecular physics simulations, or create images and video loops?${sourcesText}`
             };
         }
         
