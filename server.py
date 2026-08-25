@@ -46,7 +46,7 @@ def load_env_file():
                         k, v = line.split("=", 1)
                         k = k.strip()
                         v = v.strip().strip("'\"")
-                        if k and k not in os.environ:
+                        if k:
                             os.environ[k] = v
         except Exception as e:
             log_debug(f"Error loading .env: {e}")
@@ -54,6 +54,7 @@ def load_env_file():
 load_env_file()
 
 def get_admin_emails():
+    load_env_file()
     # Read comma-separated admin emails from environment (set via .env)
     raw = os.environ.get("ADMIN_EMAILS", "")
     if not raw:
@@ -69,8 +70,14 @@ def get_admin_emails():
     return [e.strip().lower() for e in raw.split(",") if e.strip()]
 
 def get_google_oauth_config():
+    load_env_file()
     client_id = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
     client_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
+    # Ignore placeholder template brackets <...>
+    if client_id.startswith("<") and client_id.endswith(">"):
+        client_id = ""
+    if client_secret.startswith("<") and client_secret.endswith(">"):
+        client_secret = ""
     if not client_id or not client_secret:
         # Fallback to keys.json
         keys_file = os.path.join(DIRECTORY, "keys.json")
