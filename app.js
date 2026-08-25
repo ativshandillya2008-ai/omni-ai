@@ -130,23 +130,44 @@ const appState = {
         }
     },
 
-    saveConversations() {
-        localStorage.setItem('omni_conversations', JSON.stringify(this.conversations));
-        localStorage.setItem('omni_active_thread_id', this.activeThreadId);
+    // ─── Per-Account Storage Key Helpers ────────────────────────────────────────
+    // Returns the localStorage key to use for a given account email.
+    // Guest mode uses a special transient key that is cleared on logout.
+    getStorageKeyForEmail(email) {
+        if (!email || email === 'guest@omniai.local') return 'omni_conversations_guest';
+        // Sanitise email to produce a safe key
+        return 'omni_conversations_' + email.replace(/[^a-zA-Z0-9@._-]/g, '_');
     },
 
-    loadConversationsFromStorage() {
-        const storedConvs = localStorage.getItem('omni_conversations');
-        const storedActiveId = localStorage.getItem('omni_active_thread_id');
+    getCurrentEmail() {
+        return localStorage.getItem('omni_user_email') || 'guest@omniai.local';
+    },
+
+    saveConversations() {
+        const key = this.getStorageKeyForEmail(this.getCurrentEmail());
+        localStorage.setItem(key, JSON.stringify(this.conversations));
+        localStorage.setItem(key + '_activeThread', this.activeThreadId);
+    },
+
+    loadConversationsFromStorage(email) {
+        // Load conversations for the given email (or current email if omitted)
+        const resolvedEmail = email || this.getCurrentEmail();
+        const key = this.getStorageKeyForEmail(resolvedEmail);
+        const storedConvs = localStorage.getItem(key);
+        const storedActiveId = localStorage.getItem(key + '_activeThread');
         if (storedConvs) {
             try {
                 this.conversations = JSON.parse(storedConvs);
                 this.activeThreadId = storedActiveId || 'default';
             } catch(e) {
                 console.error("Error loading conversations", e);
+                this.resetToDefaultConversation();
             }
+        } else {
+            // No prior conversation for this account — start fresh
+            this.resetToDefaultConversation();
         }
-        // Update first welcome message if it contains an old static greeting
+        // Patch the first welcome message to match the correct user name
         if (this.conversations && this.conversations['default'] && this.conversations['default'].messages && this.conversations['default'].messages.length > 0) {
             const firstMsg = this.conversations['default'].messages[0];
             if (firstMsg.sender === 'ai' && (firstMsg.text.startsWith('Hello') || firstMsg.text.startsWith('Hi'))) {
@@ -155,6 +176,25 @@ const appState = {
             }
         }
     },
+
+    resetToDefaultConversation() {
+        this.conversations = {
+            'default': {
+                id: 'default',
+                title: 'OmniAI Co-Pilot Portal',
+                model: 'gemini-1-5-ultra',
+                messages: [
+                    {
+                        sender: 'ai',
+                        name: 'Gemini 1.5 Ultra',
+                        text: 'Hello! I am your global co-pilot. I have full context of all NotebookLM documents in your sidebar. Type your prompt below to generate text, code sandboxes, detailed research, images, or videos in-line!'
+                    }
+                ]
+            }
+        };
+        this.activeThreadId = 'default';
+    },
+
 
     // 1. Password Verification & Role-Based Access Control
     setupAuth() {
@@ -177,10 +217,28 @@ const appState = {
 
         // Helper to apply Session User State to UI & LocalStorage
         const applyUserState = (userName, userRole, isAdmin, userEmail = '') => {
+            // ── 1. Save the CURRENT account's conversations before switching ──────
+            const previousEmail = this.getCurrentEmail();
+            const isLeavingGuest = (previousEmail === 'guest@omniai.local');
+
+            if (isLeavingGuest) {
+                // Guest conversations are intentionally discarded — never carry over
+                const guestKey = this.getStorageKeyForEmail('guest@omniai.local');
+                localStorage.removeItem(guestKey);
+                localStorage.removeItem(guestKey + '_activeThread');
+            } else if (previousEmail) {
+                // Save real-account conversations before switching
+                this.saveConversations();
+            }
+
+            // ── 2. Write new identity to localStorage ─────────────────────────────
             localStorage.setItem('omni_user_name', userName);
             localStorage.setItem('omni_user_role', userRole);
             localStorage.setItem('omni_is_owner', isAdmin ? 'true' : 'false');
             if (userEmail) localStorage.setItem('omni_user_email', userEmail);
+
+            // ── 3. Load the new account's conversations (or start fresh if new) ───
+            this.loadConversationsFromStorage(userEmail || 'guest@omniai.local');
 
             const nameEl = document.getElementById('user-display-name');
             const roleEl = document.getElementById('user-display-role');
@@ -323,6 +381,19 @@ const appState = {
         // Sign Out / Switch Account Button
         if (logoutAccountBtn) {
             logoutAccountBtn.addEventListener('click', async () => {
+                // Save current account's conversations before signing out
+                const currentEmail = this.getCurrentEmail();
+                const isGuest = (currentEmail === 'guest@omniai.local');
+                if (isGuest) {
+                    // Purge guest conversations — guest sessions are never persisted
+                    const guestKey = this.getStorageKeyForEmail('guest@omniai.local');
+                    localStorage.removeItem(guestKey);
+                    localStorage.removeItem(guestKey + '_activeThread');
+                } else {
+                    // Persist real-account conversations before logout
+                    this.saveConversations();
+                }
+
                 try {
                     await fetch('/auth/logout', { method: 'POST' });
                 } catch (e) {
